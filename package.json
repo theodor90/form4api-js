@@ -1,0 +1,43 @@
+{
+  "name": "form4api",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for Form4API — real-time SEC Form 4 insider trading data",
+  "keywords": ["insider-trading", "sec", "form4", "finance", "api", "form4api"],
+  "license": "MIT",
+  "homepage": "https://form4api.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/theodor90/form4api-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/theodor90/form4api-js/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "msw": "^2.7.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
