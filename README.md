@@ -18,14 +18,15 @@ import { Form4ApiClient } from "form4api";
 const client = new Form4ApiClient({ apiKey: "YOUR_API_KEY" });
 
 // Recent open-market purchases at Apple
-const buys = await client.transactions.list({ ticker: "AAPL", code: "P", isOpenMarket: true });
+const buys = await client.transactions.list({ ticker: "AAPL", code: "P", perPage: 5 });
 for (const txn of buys) {
-  console.log(txn.insiderName, txn.insiderRole, txn.sharesAmount, "@", txn.pricePerShare);
+  console.log(txn.insiderName, txn.insiderTitle, txn.sharesAmount, "@", txn.pricePerShare);
 }
 
 // Company overview
 const company = await client.companies.get("MSFT");
 console.log(company.name, company.activeInsiders, "active insiders");
+console.log(company.sicDescription, company.stateOfIncorporation);
 
 // Insider detail
 const insider = await client.insiders.get("0001234567");
@@ -47,16 +48,15 @@ const txns = await client.transactions.list({
   ticker?: string;
   cik?: string;
   insiderCik?: string;
-  code?: string;         // "P" = purchase, "S" = sale
-  from?: string;         // ISO date "2025-01-01"
+  code?: string;          // "P" = purchase, "S" = sale
+  from?: string;          // ISO date "2025-01-01"
   to?: string;
-  isOpenMarket?: boolean; // filter to open-market trades only
-  is10b5Plan?: boolean;   // filter to 10b5-1 plan trades
+  exclude10b5?: boolean;  // omit trades filed under a 10b5-1 plan
   page?: number;
   perPage?: number;       // max 500
 });
 
-// Paginate (async iterator)
+// Paginate (async generator)
 for await (const page of client.transactions.paginate({ ticker: "AAPL" })) {
   // page: Transaction[]
 }
@@ -77,14 +77,14 @@ for await (const page of client.transactions.paginate({ ticker: "AAPL" })) {
 | `accessionNumber` | `string` | SEC accession number |
 | `securityTitle` | `string` | Security type |
 | `transactionCode` | `string` | Transaction code (P/S/A/D/…) |
+| `isOpenMarket` | `boolean` | `true` when code is P or S (not grants/awards) |
+| `is10b5Plan` | `boolean` | Filed under a Rule 10b5-1 pre-scheduled trading plan |
 | `sharesAmount` | `number` | Shares transacted |
 | `pricePerShare` | `number \| null` | Price per share |
-| `totalValue` | `number \| null` | `sharesAmount × pricePerShare` |
+| `totalValue` | `number \| null` | `sharesAmount × pricePerShare` in USD |
 | `sharesOwnedAfter` | `number \| null` | Holdings after transaction |
-| `directIndirect` | `string \| null` | "D" or "I" |
+| `directIndirect` | `string \| null` | "D" (direct) or "I" (indirect) |
 | `isDerivative` | `boolean` | Derivative security flag |
-| `isOpenMarket` | `boolean` | Open-market transaction (not grant/award) |
-| `is10b5Plan` | `boolean` | Filed under a 10b5-1 trading plan |
 | `transactionDate` | `string` | ISO datetime |
 | `periodOfReport` | `string` | ISO datetime |
 
@@ -102,6 +102,8 @@ const company = await client.companies.get(ticker: string);
 const insiders = await client.companies.insiders(ticker: string);
 ```
 
+**`Company` fields:** `cik`, `name`, `ticker`, `exchange`, `totalFilings`, `activeInsiders`, `sicDescription`, `stateOfIncorporation`, `website`
+
 ### `client.signals` *(Business plan)*
 
 ```typescript
@@ -113,7 +115,7 @@ const signals = await client.signals.list({
   perPage?: number;
 });
 
-// Paginate
+// Paginate (async generator)
 for await (const page of client.signals.paginate({ clusterBuy: true })) {
   // page: InsiderSignal[]
 }
