@@ -39,6 +39,9 @@ export interface Company {
   exchange: string | null;
   totalFilings: number;
   activeInsiders: number;
+  sicDescription: string | null;
+  stateOfIncorporation: string | null;
+  website: string | null;
 }
 
 export interface InsiderSignal {

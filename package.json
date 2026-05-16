@@ -1,6 +1,6 @@
 {
   "name": "form4api",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "TypeScript SDK for Form4API — real-time SEC Form 4 insider trading data",
   "keywords": [
     "insider-trading",

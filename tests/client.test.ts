@@ -53,6 +53,9 @@ const COMPANY = {
   exchange: "NASDAQ",
   totalFilings: 300,
   activeInsiders: 12,
+  sicDescription: "Electronic Computers",
+  stateOfIncorporation: "CA",
+  website: null,
 };
 
 const SIGNAL = {
