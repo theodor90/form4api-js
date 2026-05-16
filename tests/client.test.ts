@@ -17,18 +17,21 @@ const TRANSACTION = {
   companyName: "Apple Inc.",
   insiderName: "Tim Cook",
   insiderCik: "0001234567",
-  insiderRole: "CEO",
+  insiderTitle: "Chief Executive Officer",
+  isDirector: false,
+  isOfficer: true,
+  is10PctOwner: false,
   accessionNumber: "0000000001-25-000001",
   securityTitle: "Common Stock",
   transactionCode: "P",
+  isOpenMarket: true,
+  is10b5Plan: false,
   sharesAmount: 1000,
   pricePerShare: 175.5,
   totalValue: 175500,
   sharesOwnedAfter: 50000,
   directIndirect: "D",
   isDerivative: false,
-  isOpenMarket: true,
-  is10b5Plan: false,
   transactionDate: "2025-06-01T00:00:00",
   periodOfReport: "2025-05-31T00:00:00",
 };
@@ -135,10 +138,13 @@ describe("transactions", () => {
     expect(txn.isOpenMarket).toBe(true);
     expect(txn.is10b5Plan).toBe(false);
     expect(txn.totalValue).toBe(175500);
-    expect(txn.insiderRole).toBe("CEO");
+    expect(txn.insiderTitle).toBe("Chief Executive Officer");
+    expect(txn.isDirector).toBe(false);
+    expect(txn.isOfficer).toBe(true);
+    expect(txn.is10PctOwner).toBe(false);
   });
 
-  it("list forwards isOpenMarket filter", async () => {
+  it("list forwards exclude10b5 filter", async () => {
     let url: URL | null = null;
     server.use(
       http.get(`${BASE}/v1/transactions`, ({ request }) => {
@@ -146,20 +152,8 @@ describe("transactions", () => {
         return HttpResponse.json([]);
       }),
     );
-    await makeClient().transactions.list({ isOpenMarket: true });
-    expect(url!.searchParams.get("is_open_market")).toBe("true");
-  });
-
-  it("list forwards is10b5Plan filter", async () => {
-    let url: URL | null = null;
-    server.use(
-      http.get(`${BASE}/v1/transactions`, ({ request }) => {
-        url = new URL(request.url);
-        return HttpResponse.json([]);
-      }),
-    );
-    await makeClient().transactions.list({ is10b5Plan: false });
-    expect(url!.searchParams.get("is_10b5_plan")).toBe("false");
+    await makeClient().transactions.list({ exclude10b5: true });
+    expect(url!.searchParams.get("exclude_10b5")).toBe("true");
   });
 
   it("paginate yields pages until empty", async () => {

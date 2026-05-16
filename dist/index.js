@@ -113,8 +113,7 @@ var TransactionsResource = class {
     if (params.code !== void 0) q["code"] = params.code;
     if (params.from !== void 0) q["from"] = params.from;
     if (params.to !== void 0) q["to"] = params.to;
-    if (params.isOpenMarket !== void 0) q["is_open_market"] = String(params.isOpenMarket);
-    if (params.is10b5Plan !== void 0) q["is_10b5_plan"] = String(params.is10b5Plan);
+    if (params.exclude10b5 !== void 0) q["exclude_10b5"] = String(params.exclude10b5);
     q["page"] = String(params.page ?? 1);
     q["per_page"] = String(params.perPage ?? 50);
     return this.client._get("/v1/transactions", q);

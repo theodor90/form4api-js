@@ -12,8 +12,7 @@ export class TransactionsResource {
     if (params.code !== undefined) q["code"] = params.code;
     if (params.from !== undefined) q["from"] = params.from;
     if (params.to !== undefined) q["to"] = params.to;
-    if (params.isOpenMarket !== undefined) q["is_open_market"] = String(params.isOpenMarket);
-    if (params.is10b5Plan !== undefined) q["is_10b5_plan"] = String(params.is10b5Plan);
+    if (params.exclude10b5 !== undefined) q["exclude_10b5"] = String(params.exclude10b5);
     q["page"] = String(params.page ?? 1);
     q["per_page"] = String(params.perPage ?? 50);
     return this.client._get<Transaction[]>("/v1/transactions", q);

@@ -70,7 +70,10 @@ for await (const page of client.transactions.paginate({ ticker: "AAPL" })) {
 | `companyName` | `string` | Company name |
 | `insiderName` | `string` | Insider's full name |
 | `insiderCik` | `string` | Insider CIK |
-| `insiderRole` | `string \| null` | Role at time of filing (e.g. "CEO", "Director") |
+| `insiderTitle` | `string \| null` | Officer title as reported on the Form 4 |
+| `isDirector` | `boolean` | Director relationship flag |
+| `isOfficer` | `boolean` | Officer relationship flag |
+| `is10PctOwner` | `boolean` | 10% owner relationship flag |
 | `accessionNumber` | `string` | SEC accession number |
 | `securityTitle` | `string` | Security type |
 | `transactionCode` | `string` | Transaction code (P/S/A/D/…) |

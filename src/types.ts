@@ -3,18 +3,21 @@ export interface Transaction {
   companyName: string;
   insiderName: string;
   insiderCik: string;
-  insiderRole: string | null;
+  insiderTitle: string | null;
+  isDirector: boolean;
+  isOfficer: boolean;
+  is10PctOwner: boolean;
   accessionNumber: string;
   securityTitle: string;
   transactionCode: string;
+  isOpenMarket: boolean;
+  is10b5Plan: boolean;
   sharesAmount: number;
   pricePerShare: number | null;
   totalValue: number | null;
   sharesOwnedAfter: number | null;
   directIndirect: string | null;
   isDerivative: boolean;
-  isOpenMarket: boolean;
-  is10b5Plan: boolean;
   transactionDate: string;
   periodOfReport: string;
 }
@@ -92,8 +95,7 @@ export interface TransactionListParams {
   code?: string;
   from?: string;
   to?: string;
-  isOpenMarket?: boolean;
-  is10b5Plan?: boolean;
+  exclude10b5?: boolean;
   page?: number;
   perPage?: number;
 }
