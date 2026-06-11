@@ -52,6 +52,16 @@ const txns = await client.transactions.list({
   from?: string;          // ISO date "2025-01-01"
   to?: string;
   exclude10b5?: boolean;  // omit trades filed under a 10b5-1 plan
+  codes?: string;            // comma-separated include, e.g. "P,S"
+  excludeCodes?: string;     // comma-separated exclude, e.g. "A,M,F,G"
+  category?: string;         // open_market | grants | derivatives | gifts | other
+  excludeCategory?: string;  // drop a whole category, e.g. "derivatives"
+  excludeDerivative?: boolean; // drop derivative-security rows
+  significant?: boolean;     // preset: open-market, no 10b5-1, no derivatives
+  minValue?: number;         // USD trade value (shares x price) — Pro+
+  maxValue?: number;         // Pro+
+  minShares?: number;        // Pro+
+  maxShares?: number;        // Pro+
   page?: number;
   perPage?: number;       // max 500
 });
@@ -131,6 +141,18 @@ const events = await client.webhooks.events({ since?: string });
 ```
 
 **Event types:** `"TransactionFiled"`, `"ClusterBuy"`, `"ClusterSell"`
+
+## Not yet in this SDK
+
+The API surface is broader than the typed client. These backend features are **available via the REST API and the `form4api-mcp` server today, but don't have a typed SDK resource yet**:
+
+- **Form 144** notice-of-proposed-sale — `GET /v1/form144` *(Business)*
+- **Institutional holdings (13F-HR)** — `GET /v1/holdings`, **managers** — `GET /v1/managers` *(Business)*
+- **Sentiment** (MSPR-style, 10b5-1-clean) — `GET /v1/signals/sentiment/{ticker}` *(Business)*
+- **Insider career summary** — `GET /v1/insiders/{cik}/summary` *(Pro)*
+- **Post-trade returns** (1d/1w/1m/3m/6m) + `minReturn*` screening filters on `/v1/transactions` *(visible free; screening Pro)*
+
+Until they land in the SDK, call them directly (`client._get("/v1/holdings", {...})`) or see the [full REST reference](https://form4api.com/docs). For LLM workflows, `form4api-mcp` exposes all of the above as tools.
 
 ## Error handling
 

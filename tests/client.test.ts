@@ -159,6 +159,38 @@ describe("transactions", () => {
     expect(url!.searchParams.get("exclude_10b5")).toBe("true");
   });
 
+  it("list forwards granular filtering params as snake_case", async () => {
+    let url: URL | null = null;
+    server.use(
+      http.get(`${BASE}/v1/transactions`, ({ request }) => {
+        url = new URL(request.url);
+        return HttpResponse.json([]);
+      }),
+    );
+    await makeClient().transactions.list({
+      codes: "P,S",
+      excludeCodes: "A,M",
+      category: "open_market",
+      excludeCategory: "derivatives",
+      excludeDerivative: true,
+      significant: true,
+      minValue: 100000,
+      maxValue: 5000000,
+      minShares: 100,
+      maxShares: 10000,
+    });
+    expect(url!.searchParams.get("codes")).toBe("P,S");
+    expect(url!.searchParams.get("exclude_codes")).toBe("A,M");
+    expect(url!.searchParams.get("category")).toBe("open_market");
+    expect(url!.searchParams.get("exclude_category")).toBe("derivatives");
+    expect(url!.searchParams.get("exclude_derivative")).toBe("true");
+    expect(url!.searchParams.get("significant")).toBe("true");
+    expect(url!.searchParams.get("min_value")).toBe("100000");
+    expect(url!.searchParams.get("max_value")).toBe("5000000");
+    expect(url!.searchParams.get("min_shares")).toBe("100");
+    expect(url!.searchParams.get("max_shares")).toBe("10000");
+  });
+
   it("paginate yields pages until empty", async () => {
     let call = 0;
     server.use(

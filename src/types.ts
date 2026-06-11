@@ -99,6 +99,26 @@ export interface TransactionListParams {
   from?: string;
   to?: string;
   exclude10b5?: boolean;
+  /** Comma-separated transaction codes to include, e.g. "P,S". */
+  codes?: string;
+  /** Comma-separated transaction codes to exclude, e.g. "A,M,F,G". */
+  excludeCodes?: string;
+  /** Include only one category: open_market | grants | derivatives | gifts | other. */
+  category?: string;
+  /** Exclude an entire category, e.g. "derivatives". */
+  excludeCategory?: string;
+  /** Drop derivative-security rows. */
+  excludeDerivative?: boolean;
+  /** Preset: open-market only, no 10b5-1 plans, no derivatives. */
+  significant?: boolean;
+  /** Minimum trade value in USD (shares × price). Pro plan or higher. */
+  minValue?: number;
+  /** Maximum trade value in USD. Pro plan or higher. */
+  maxValue?: number;
+  /** Minimum number of shares. Pro plan or higher. */
+  minShares?: number;
+  /** Maximum number of shares. Pro plan or higher. */
+  maxShares?: number;
   page?: number;
   perPage?: number;
 }
