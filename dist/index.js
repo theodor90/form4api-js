@@ -114,6 +114,16 @@ var TransactionsResource = class {
     if (params.from !== void 0) q["from"] = params.from;
     if (params.to !== void 0) q["to"] = params.to;
     if (params.exclude10b5 !== void 0) q["exclude_10b5"] = String(params.exclude10b5);
+    if (params.codes !== void 0) q["codes"] = params.codes;
+    if (params.excludeCodes !== void 0) q["exclude_codes"] = params.excludeCodes;
+    if (params.category !== void 0) q["category"] = params.category;
+    if (params.excludeCategory !== void 0) q["exclude_category"] = params.excludeCategory;
+    if (params.excludeDerivative !== void 0) q["exclude_derivative"] = String(params.excludeDerivative);
+    if (params.significant !== void 0) q["significant"] = String(params.significant);
+    if (params.minValue !== void 0) q["min_value"] = String(params.minValue);
+    if (params.maxValue !== void 0) q["max_value"] = String(params.maxValue);
+    if (params.minShares !== void 0) q["min_shares"] = String(params.minShares);
+    if (params.maxShares !== void 0) q["max_shares"] = String(params.maxShares);
     q["page"] = String(params.page ?? 1);
     q["per_page"] = String(params.perPage ?? 50);
     return this.client._get("/v1/transactions", q);
