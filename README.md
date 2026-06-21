@@ -1,6 +1,10 @@
 # form4api
 
-TypeScript SDK for [Form4API](https://form4api.com) — real-time SEC Form 4 insider trading data.
+TypeScript SDK for [Form4API](https://www.form4api.com) — real-time SEC Form 4 insider trading data.
+
+[![npm version](https://img.shields.io/npm/v/form4api.svg)](https://www.npmjs.com/package/form4api)
+[![npm downloads](https://img.shields.io/npm/dm/form4api.svg)](https://www.npmjs.com/package/form4api)
+[![license](https://img.shields.io/npm/l/form4api.svg)](https://github.com/theodor90/form4api-js/blob/main/LICENSE)
 
 Works in Node.js 18+ and any modern browser via native `fetch`. Fully typed.
 
