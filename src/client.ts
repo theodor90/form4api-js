@@ -8,6 +8,12 @@ import { WebhooksResource } from "./resources/webhooks.js";
 const DEFAULT_BASE_URL = "https://api.form4api.com";
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 
+// Sent as the User-Agent so the backend can attribute traffic to the JS SDK
+// channel (the admin dashboard buckets by client). Keep in sync with the
+// "version" field in package.json on each release.
+const SDK_VERSION = "1.1.3";
+const USER_AGENT = `form4api-js/${SDK_VERSION}`;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -96,6 +102,7 @@ export class Form4ApiClient {
           method,
           headers: {
             "X-Api-Key": this.apiKey,
+            "User-Agent": USER_AGENT,
             ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
           },
           body: body !== undefined ? JSON.stringify(body) : undefined,
