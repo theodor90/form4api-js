@@ -133,6 +133,18 @@ describe("transactions", () => {
     expect(capturedKey).toBe("fapi_test");
   });
 
+  it("list sends a branded User-Agent (for backend channel attribution)", async () => {
+    let capturedUa: string | null = null;
+    server.use(
+      http.get(`${BASE}/v1/transactions`, ({ request }) => {
+        capturedUa = request.headers.get("user-agent");
+        return HttpResponse.json([]);
+      }),
+    );
+    await makeClient().transactions.list();
+    expect(capturedUa).toMatch(/^form4api-js\/\d+\.\d+\.\d+$/);
+  });
+
   it("list returns new D1-D5 fields", async () => {
     server.use(
       http.get(`${BASE}/v1/transactions`, () => HttpResponse.json([TRANSACTION])),
