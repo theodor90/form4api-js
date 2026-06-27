@@ -67,7 +67,7 @@ const txns = await client.transactions.list({
   minShares?: number;        // Pro+
   maxShares?: number;        // Pro+
   page?: number;
-  perPage?: number;       // max 500
+  perPage?: number;       // max 100 for /v1/transactions (500 for other list endpoints)
 });
 
 // Paginate (async generator)
