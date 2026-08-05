@@ -400,7 +400,40 @@ describe("error handling", () => {
     await expect(makeClient().transactions.list()).rejects.toThrow(AuthError);
   });
 
-  it("402 throws PlanError", async () => {
+  it("402 throws PlanError carrying the plan metadata", async () => {
+    // Plan metadata lives INSIDE the error envelope, not at the top level.
+    // This test previously asserted only the type and status, so it passed
+    // while `requiredPlan` was read from the wrong level and was permanently
+    // undefined against the real API.
+    server.use(
+      http.get(`${BASE}/v1/signals`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "PLAN_REQUIRED",
+              message:
+                "This endpoint requires the Business plan or higher. Your current plan is Free.",
+              requestId: "req_test",
+              requiredPlan: "Business",
+              currentPlan: "Free",
+              upgradeUrl: "https://form4api.com/dashboard/billing",
+            },
+          },
+          { status: 402 },
+        ),
+      ),
+    );
+    const err = await makeClient()
+      .signals.list()
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(PlanError);
+    expect(err.statusCode).toBe(402);
+    expect(err.requiredPlan).toBe("Business");
+    expect(err.currentPlan).toBe("Free");
+    expect(err.upgradeUrl).toBe("https://form4api.com/dashboard/billing");
+  });
+
+  it("402 without plan metadata degrades gracefully", async () => {
     server.use(
       http.get(`${BASE}/v1/signals`, () =>
         HttpResponse.json(
@@ -413,7 +446,8 @@ describe("error handling", () => {
       .signals.list()
       .catch((e) => e);
     expect(err).toBeInstanceOf(PlanError);
-    expect(err.statusCode).toBe(402);
+    expect(err.requiredPlan).toBeUndefined();
+    expect(err.message).toBe("Business plan required");
   });
 
   it("404 throws NotFoundError", async () => {

@@ -202,8 +202,13 @@ declare class AuthError extends InsiderApiError {
     constructor(message: string, errorCode?: string | null);
 }
 declare class PlanError extends InsiderApiError {
+    /** Minimum plan that unlocks the endpoint, e.g. "Business". */
     readonly requiredPlan: string | undefined;
-    constructor(message: string, requiredPlan?: string);
+    /** The plan the calling key is currently on, e.g. "Free". */
+    readonly currentPlan: string | undefined;
+    /** Where to upgrade. */
+    readonly upgradeUrl: string | undefined;
+    constructor(message: string, requiredPlan?: string, currentPlan?: string, upgradeUrl?: string);
 }
 declare class NotFoundError extends InsiderApiError {
     constructor(message: string, errorCode?: string | null);

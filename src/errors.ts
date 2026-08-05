@@ -18,12 +18,24 @@ export class AuthError extends InsiderApiError {
 }
 
 export class PlanError extends InsiderApiError {
+  /** Minimum plan that unlocks the endpoint, e.g. "Business". */
   readonly requiredPlan: string | undefined;
+  /** The plan the calling key is currently on, e.g. "Free". */
+  readonly currentPlan: string | undefined;
+  /** Where to upgrade. */
+  readonly upgradeUrl: string | undefined;
 
-  constructor(message: string, requiredPlan?: string) {
+  constructor(
+    message: string,
+    requiredPlan?: string,
+    currentPlan?: string,
+    upgradeUrl?: string,
+  ) {
     super(message, 402, "PLAN_REQUIRED");
     this.name = "PlanError";
     this.requiredPlan = requiredPlan;
+    this.currentPlan = currentPlan;
+    this.upgradeUrl = upgradeUrl;
   }
 }
 
