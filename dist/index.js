@@ -16,11 +16,18 @@ var AuthError = class extends InsiderApiError {
   }
 };
 var PlanError = class extends InsiderApiError {
+  /** Minimum plan that unlocks the endpoint, e.g. "Business". */
   requiredPlan;
-  constructor(message, requiredPlan) {
+  /** The plan the calling key is currently on, e.g. "Free". */
+  currentPlan;
+  /** Where to upgrade. */
+  upgradeUrl;
+  constructor(message, requiredPlan, currentPlan, upgradeUrl) {
     super(message, 402, "PLAN_REQUIRED");
     this.name = "PlanError";
     this.requiredPlan = requiredPlan;
+    this.currentPlan = currentPlan;
+    this.upgradeUrl = upgradeUrl;
   }
 };
 var NotFoundError = class extends InsiderApiError {
@@ -166,6 +173,8 @@ var WebhooksResource = class {
 // src/client.ts
 var DEFAULT_BASE_URL = "https://api.form4api.com";
 var RETRY_DELAYS_MS = [500, 1e3, 2e3];
+var SDK_VERSION = "1.1.3";
+var USER_AGENT = `form4api-js/${SDK_VERSION}`;
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -234,6 +243,7 @@ var Form4ApiClient = class {
           method,
           headers: {
             "X-Api-Key": this.apiKey,
+            "User-Agent": USER_AGENT,
             ...body !== void 0 ? { "Content-Type": "application/json" } : {}
           },
           body: body !== void 0 ? JSON.stringify(body) : void 0,
@@ -271,8 +281,10 @@ var Form4ApiClient = class {
       case 401:
         throw new AuthError(message, code);
       case 402: {
-        const required = body["requiredPlan"] ?? void 0;
-        throw new PlanError(message, required);
+        const required = error["requiredPlan"] ?? void 0;
+        const current = error["currentPlan"] ?? void 0;
+        const upgradeUrl = error["upgradeUrl"] ?? void 0;
+        throw new PlanError(message, required, current, upgradeUrl);
       }
       case 404:
         throw new NotFoundError(message, code);

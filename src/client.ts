@@ -152,8 +152,15 @@ export class Form4ApiClient {
       case 401:
         throw new AuthError(message, code);
       case 402: {
-        const required = (body["requiredPlan"] as string | undefined) ?? undefined;
-        throw new PlanError(message, required);
+        // Read from the nested `error` object, not the top level. This was
+        // reading body["requiredPlan"], which the API has never emitted at any
+        // level, so `PlanError.requiredPlan` was permanently undefined. The
+        // backend now returns requiredPlan/currentPlan/upgradeUrl inside the
+        // standard error envelope.
+        const required = (error["requiredPlan"] as string | undefined) ?? undefined;
+        const current = (error["currentPlan"] as string | undefined) ?? undefined;
+        const upgradeUrl = (error["upgradeUrl"] as string | undefined) ?? undefined;
+        throw new PlanError(message, required, current, upgradeUrl);
       }
       case 404:
         throw new NotFoundError(message, code);
