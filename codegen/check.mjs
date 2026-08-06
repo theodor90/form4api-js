@@ -29,12 +29,16 @@ execFileSync(process.execPath, [path.join(__dirname, 'generate.mjs')], { stdio: 
 
 const after = await fs.readFile(OUTPUT_PATH, 'utf8')
 
+// Always restore, pass or fail. A check must not mutate the tree it checks — on
+// Windows the regenerated file is LF where the committed one is CRLF, so
+// leaving it behind shows up as a spurious modification in git status.
+await fs.writeFile(OUTPUT_PATH, before, 'utf8')
+
 // Compare ignoring line endings, so the CRLF trap above cannot produce a
 // spurious CI failure while still catching every real content change.
 const normalise = (s) => s.replace(/\r\n/g, '\n')
 
 if (normalise(before) !== normalise(after)) {
-  await fs.writeFile(OUTPUT_PATH, before, 'utf8') // leave the tree as we found it
   console.error(
     '\nsrc/generated.ts is out of date with the OpenAPI spec.\n' +
       'Run `npm run codegen` and commit the result.\n',
