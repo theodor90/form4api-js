@@ -4,6 +4,19 @@ import { InsidersResource } from "./resources/insiders.js";
 import { SignalsResource } from "./resources/signals.js";
 import { TransactionsResource } from "./resources/transactions.js";
 import { WebhooksResource } from "./resources/webhooks.js";
+// Resource families with no hand-written wrapper — entirely spec-derived.
+// Before these, all 6 Pro-gated and 9 of 10 Business-gated endpoints were
+// unreachable from this SDK: a Business customer could not call Form 144 or
+// 13F holdings at all.
+import {
+  GeneratedCongressResource,
+  GeneratedDataQualityResource,
+  GeneratedFilingsResource,
+  GeneratedForm144Resource,
+  GeneratedHoldingsResource,
+  GeneratedStatsResource,
+  GeneratedStatusResource,
+} from "./generated.js";
 
 const DEFAULT_BASE_URL = "https://api.form4api.com";
 const RETRY_DELAYS_MS = [500, 1000, 2000];
@@ -38,6 +51,13 @@ export class Form4ApiClient {
   readonly companies: CompaniesResource;
   readonly signals: SignalsResource;
   readonly webhooks: WebhooksResource;
+  readonly congress: GeneratedCongressResource;
+  readonly filings: GeneratedFilingsResource;
+  readonly form144: GeneratedForm144Resource;
+  readonly holdings: GeneratedHoldingsResource;
+  readonly stats: GeneratedStatsResource;
+  readonly status: GeneratedStatusResource;
+  readonly dataQuality: GeneratedDataQualityResource;
 
   constructor({
     apiKey,
@@ -54,6 +74,13 @@ export class Form4ApiClient {
     this.companies = new CompaniesResource(this);
     this.signals = new SignalsResource(this);
     this.webhooks = new WebhooksResource(this);
+    this.congress = new GeneratedCongressResource(this);
+    this.filings = new GeneratedFilingsResource(this);
+    this.form144 = new GeneratedForm144Resource(this);
+    this.holdings = new GeneratedHoldingsResource(this);
+    this.stats = new GeneratedStatsResource(this);
+    this.status = new GeneratedStatusResource(this);
+    this.dataQuality = new GeneratedDataQualityResource(this);
   }
 
   // ── internal request helpers ───────────────────────────────────────────────

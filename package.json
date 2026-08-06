@@ -55,7 +55,9 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "codegen": "node codegen/generate.mjs",
+    "codegen:check": "node codegen/check.mjs"
   },
   "devDependencies": {
     "msw": "^2.7.0",
