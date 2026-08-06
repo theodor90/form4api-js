@@ -1,8 +1,14 @@
 import type { Form4ApiClient } from "../client.js";
 import type { InsiderSignal, SignalListParams } from "../types.js";
+import { GeneratedSignalsResource } from "../generated.js";
 
-export class SignalsResource {
-  constructor(private readonly client: Form4ApiClient) {}
+// See CompaniesResource for why this extends rather than replaces. Inherits
+// explain(), sentiment() and convergence() — all previously unreachable from
+// this SDK despite being paid-tier features.
+export class SignalsResource extends GeneratedSignalsResource {
+  constructor(client: Form4ApiClient) {
+    super(client);
+  }
 
   async list(params: SignalListParams = {}): Promise<InsiderSignal[]> {
     const q: Record<string, string> = {};
