@@ -146,17 +146,36 @@ const events = await client.webhooks.events({ since?: string });
 
 **Event types:** `"TransactionFiled"`, `"ClusterBuy"`, `"ClusterSell"`
 
-## Not yet in this SDK
+## Full resource surface
 
-The API surface is broader than the typed client. These backend features are **available via the REST API and the `form4api-mcp` server today, but don't have a typed SDK resource yet**:
+Every plan-gated endpoint the API exposes has a typed method here. Resources
+generated from the OpenAPI spec sit alongside the hand-written ones above:
 
-- **Form 144** notice-of-proposed-sale — `GET /v1/form144` *(Business)*
-- **Institutional holdings (13F-HR)** — `GET /v1/holdings`, **managers** — `GET /v1/managers` *(Business)*
-- **Sentiment** (MSPR-style, 10b5-1-clean) — `GET /v1/signals/sentiment/{ticker}` *(Business)*
-- **Insider career summary** — `GET /v1/insiders/{cik}/summary` *(Pro)*
-- **Post-trade returns** (1d/1w/1m/3m/6m) + `minReturn*` screening filters on `/v1/transactions` *(visible free; screening Pro)*
+| Resource | Methods |
+|---|---|
+| `client.transactions` | `.list()`, `.paginate()` |
+| `client.insiders` | `.get(cik)`, `.list()`, `.transactions(cik)`, `.summary(cik)` *(Pro)*, `.scorecard(cik)` *(Pro)*, `.leaderboard()` *(Business)* |
+| `client.companies` | `.get(ticker)`, `.insiders(ticker)`, `.list()` |
+| `client.signals` | `.list()`, `.paginate()`, `.explain(ticker)`, `.sentiment(ticker)` — Business; `.convergence()` — Pro |
+| `client.congress` | `.trades()`, `.politicians()` *(Pro)*, `.politician(idOrSlug)` *(Pro)*, `.ticker(ticker)` *(Pro)* |
+| `client.form144` | `.list()` — Business |
+| `client.holdings` | `.list()`, `.managers()` — Business |
+| `client.filings` | `.recent()`, `.get(accessionNumber)` |
+| `client.stats` | `.get()` — public, no key required |
+| `client.dataQuality` | `.get()` — public, no key required |
+| `client.status` | `.history()` |
+| `client.webhooks` | `.create()`, `.list()`, `.delete(id)`, `.events()` |
 
-Until they land in the SDK, call them directly (`client._get("/v1/holdings", {...})`) or see the [full REST reference](https://form4api.com/docs). For LLM workflows, `form4api-mcp` exposes all of the above as tools.
+Post-trade returns (1d/1w/1m/3m/6m) come back on transaction rows, and the
+`minReturn*` screening filters are parameters on `client.transactions.list()`
+*(returns visible free; screening Pro)*.
+
+Calling an endpoint your key isn't entitled to throws `PlanError` (HTTP 402)
+carrying `requiredPlan`, `currentPlan`, and `upgradeUrl` rather than failing
+opaquely.
+
+For the full parameter reference see the [REST docs](https://form4api.com/docs).
+For LLM workflows, `form4api-mcp` exposes the same endpoints as tools.
 
 ## Error handling
 
