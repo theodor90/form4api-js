@@ -36,7 +36,9 @@ const SKIP_OPERATIONS = new Set([
   'InsiderTradingAlias', // 301 redirect to /v1/transactions
   'GetFeaturedTestimonials', 'SubmitTestimonial', 'JoinUpgradeWaitlist', // marketing
   // Stage 1b — anonymous server-side responses, no schema to bind to.
-  'GetInsiderLeaderboard', 'GetKeyUsage', 'GetKeyActivity', 'GetUsageHistory',
+  // (GetInsiderLeaderboard came off this list 2026-08-07: insiderapi #192 declared
+  //  its response type, which was the only thing keeping it out.)
+  'GetKeyUsage', 'GetKeyActivity', 'GetUsageHistory',
   'ListWebhooks', 'GetWebhookEvents', 'CreateWebhook', 'DeleteWebhook',
 ])
 
@@ -84,6 +86,7 @@ const METHOD_NAMES = {
   ListInsiders: 'list',
   GetInsiderSummary: 'summary',
   GetInsiderScorecard: 'scorecard',
+  GetInsiderLeaderboard: 'leaderboard',
   ListHoldings: 'list',
   ListManagers: 'managers',
   ExplainSignal: 'explain',
