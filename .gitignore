@@ -1,0 +1,29 @@
+# Dependencies — installed from package-lock.json, never committed.
+# These were tracked until 2026-08-07: 3,787 of the repo's 3,811 tracked files
+# were node_modules, so 99.4% of every clone and every diff was dependencies.
+node_modules/
+
+# Build and test caches
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Environment and secrets — nothing here should ever be committed
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+
+# NOTE: dist/ is deliberately NOT ignored. It is committed on purpose and every
+# release PR includes the rebuilt bundle. If that convention is ever revisited,
+# ignore it here and build in a publish step instead.
