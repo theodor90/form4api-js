@@ -173,6 +173,21 @@ var GeneratedInsidersResource = class {
   }
   client;
   /**
+     * Ranked leaderboard of insiders by buy track-record (Business plan+)
+     * Returns the top insiders ranked by historical buy performance — same scored-buy methodology as
+  GET /v1/insiders/{cik}/scorecard, applied across the whole corpus rather than one insider. Use
+  this to discover which insiders have the best track record; use the per-insider scorecard once
+  you have a specific CIK. Scores use absolute return (NOT market-adjusted) — a hit is a scored
+  buy with a positive 3m (or 6m) return anchored at the filing-date close. Only discretionary
+  open-market buys (P-code, not 10b5-1, not derivative) with a matured return are counted.
+  Insiders with fewer than min_trades (floor 5) scored buys are excluded. Requires Business plan
+  or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Results are cached for 1 hour per unique
+  parameter combination.
+     */
+  async leaderboard(params) {
+    return this.client._get(`/v1/insiders/leaderboard`, toQuery(params));
+  }
+  /**
    * Search insiders (officers, directors, 10% owners) by name
    * Searches insiders by name and returns a paginated list of matches with each insider's CIK, title, director/officer/10%-owner flags, and total filing count. Use this to resolve a person's name to their CIK before fetching their transaction history, career summary, or scorecard — the CIK returned here feeds directly into GET /v1/insiders/{cik}/transactions, /summary, and /scorecard. Omitting the name filter returns insiders in alphabetical order rather than performing a search. Not plan-gated — available on the Free tier.
    */

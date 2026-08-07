@@ -313,6 +313,11 @@ export interface InsiderCompanyEntry {
   firstSeen: string;
 }
 
+export interface InsiderLeaderboardResponse {
+  insiders: LeaderboardEntry[];
+  methodology: string;
+}
+
 export interface InsiderResponse {
   cik: string;
   name: string;
@@ -378,6 +383,15 @@ export interface InstitutionalOwnershipDto {
   trend: string;
   topHolders: TopHolderDto[];
   coverageIncomplete: boolean;
+}
+
+export interface LeaderboardEntry {
+  insiderCik: string;
+  insiderName: string;
+  scoredBuyCount: number;
+  hitRate: number;
+  avgReturn: number;
+  lastTradeAt: string | null;
 }
 
 export interface ManagerResponse {
@@ -594,6 +608,17 @@ export interface ListInsidersParams {
   per_page?: number;
 }
 
+export interface GetInsiderLeaderboardParams {
+  /** "3m" or "6m" — the post-trade return horizon to score and rank by. Defaults to "3m". */
+  horizon?: string;
+  /** "hit_rate" (% of scored buys with a positive return) or "avg_return" (mean scored return). Defaults to "hit_rate". */
+  order?: string;
+  /** Minimum number of scored buys an insider must have to be ranked. Defaults to 5; values below 5 are silently raised to 5 (the scorecard sample-sufficiency floor). */
+  min_trades?: number;
+  /** Maximum number of insiders to return. Defaults to 25, maximum 100. */
+  limit?: number;
+}
+
 export interface ListCompaniesParams {
   /** Sort order: "name" (alphabetical, default) or "totalfilings" (most SEC filings first). Case-insensitive; unrecognized values fall back to "name". */
   sort?: string;
@@ -793,6 +818,22 @@ export class GeneratedHoldingsResource {
 
 export class GeneratedInsidersResource {
   constructor(protected readonly client: Form4ApiClient) {}
+
+  /**
+   * Ranked leaderboard of insiders by buy track-record (Business plan+)
+   * Returns the top insiders ranked by historical buy performance — same scored-buy methodology as
+GET /v1/insiders/{cik}/scorecard, applied across the whole corpus rather than one insider. Use
+this to discover which insiders have the best track record; use the per-insider scorecard once
+you have a specific CIK. Scores use absolute return (NOT market-adjusted) — a hit is a scored
+buy with a positive 3m (or 6m) return anchored at the filing-date close. Only discretionary
+open-market buys (P-code, not 10b5-1, not derivative) with a matured return are counted.
+Insiders with fewer than min_trades (floor 5) scored buys are excluded. Requires Business plan
+or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Results are cached for 1 hour per unique
+parameter combination.
+   */
+  async leaderboard(params?: GetInsiderLeaderboardParams): Promise<InsiderLeaderboardResponse> {
+    return this.client._get<InsiderLeaderboardResponse>(`/v1/insiders/leaderboard`, toQuery(params));
+  }
 
   /**
    * Search insiders (officers, directors, 10% owners) by name
