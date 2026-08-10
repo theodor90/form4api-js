@@ -445,10 +445,12 @@ var WebhooksResource = class {
   }
 };
 
+// src/version.ts
+var SDK_VERSION = "1.2.0";
+
 // src/client.ts
 var DEFAULT_BASE_URL = "https://api.form4api.com";
 var RETRY_DELAYS_MS = [500, 1e3, 2e3];
-var SDK_VERSION = "1.1.3";
 var USER_AGENT = `form4api-js/${SDK_VERSION}`;
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

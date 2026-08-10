@@ -57,7 +57,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "codegen": "node codegen/generate.mjs",
-    "codegen:check": "node codegen/check.mjs"
+    "codegen:check": "node codegen/check.mjs",
+    "codegen:version": "node codegen/version.mjs",
+    "prebuild": "node codegen/version.mjs"
   },
   "devDependencies": {
     "msw": "^2.7.0",
