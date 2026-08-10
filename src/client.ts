@@ -17,14 +17,18 @@ import {
   GeneratedStatsResource,
   GeneratedStatusResource,
 } from "./generated.js";
+import { SDK_VERSION } from "./version.js";
 
 const DEFAULT_BASE_URL = "https://api.form4api.com";
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 
 // Sent as the User-Agent so the backend can attribute traffic to the JS SDK
-// channel (the admin dashboard buckets by client). Keep in sync with the
-// "version" field in package.json on each release.
-const SDK_VERSION = "1.1.3";
+// channel and answer "who is still on an old version" before a breaking change.
+//
+// SDK_VERSION is GENERATED from package.json by codegen/version.mjs, which runs
+// on every build. It used to be a hand-maintained constant with a comment asking
+// the releaser to keep it in sync, and it drifted — the constant said 1.1.3
+// while the published package was 1.2.0.
 const USER_AGENT = `form4api-js/${SDK_VERSION}`;
 
 function sleep(ms: number): Promise<void> {
