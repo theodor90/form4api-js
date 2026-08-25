@@ -154,13 +154,13 @@ generated from the OpenAPI spec sit alongside the hand-written ones above:
 | Resource | Methods |
 |---|---|
 | `client.transactions` | `.list()`, `.paginate()` |
-| `client.insiders` | `.get(cik)`, `.list()`, `.transactions(cik)`, `.summary(cik)` *(Pro)*, `.scorecard(cik)` *(Pro)*, `.leaderboard()` *(Business)* |
+| `client.insiders` | `.get(cik)`, `.list()`, `.directory()`, `.transactions(cik)`, `.summary(cik)` *(Pro)*, `.scorecard(cik)` *(Pro)*, `.leaderboard()` *(Business)* |
 | `client.companies` | `.get(ticker)`, `.insiders(ticker)`, `.list()` |
 | `client.signals` | `.list()`, `.paginate()`, `.explain(ticker)`, `.sentiment(ticker)` — Business; `.convergence()` — Pro |
 | `client.congress` | `.trades()`, `.politicians()` *(Pro)*, `.politician(idOrSlug)` *(Pro)*, `.ticker(ticker)` *(Pro)* |
 | `client.form144` | `.list()` — Business |
 | `client.holdings` | `.list()`, `.managers()` — Business |
-| `client.filings` | `.recent()`, `.get(accessionNumber)` |
+| `client.filings` | `.list()`, `.recent()`, `.get(accessionNumber)` |
 | `client.stats` | `.get()` — public, no key required |
 | `client.dataQuality` | `.get()` — public, no key required |
 | `client.status` | `.history()` |
