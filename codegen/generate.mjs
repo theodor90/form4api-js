@@ -19,6 +19,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { deriveMethodName } from './methodName.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
@@ -70,10 +71,22 @@ const TAG_TO_RESOURCE = {
   'Transactions': 'transactions',
 }
 
-// operationId → method name. Explicit for the same reason as tags: a derived
-// name is a rename away from a breaking change, and there are few enough
-// operations that spelling them out is cheaper than debugging a heuristic.
-const METHOD_NAMES = {
+// operationId → method name, as OVERRIDES over the derived default below.
+//
+// This used to be the only source of names, and a missing entry threw. That is
+// why codegen went hard-down when the backend shipped /v1/filings on
+// 2026-08-04 and /v1/insiders/directory on 2026-08-25: neither SDK could
+// regenerate at all until someone added a line here by hand, and with CI
+// billing-blocked nobody saw it go red. The MCP server has not had that
+// problem because it derives a name and treats its map as overrides
+// (`toolNameFor` in form4api-mcp/codegen/generate.mjs); this now matches.
+//
+// EVERY name that has already shipped stays pinned here even where the derived
+// value would agree. Deriving them instead would be correct today and a silent
+// breaking rename the day an operationId changes upstream — and unlike an MCP
+// tool name, which an agent re-reads every session, a method name is a typed
+// contract in someone's build.
+const METHOD_NAME_OVERRIDES = {
   ListCompanies: 'list',
   ListCongressTrades: 'trades',
   ListCongressPoliticians: 'politicians',
@@ -151,9 +164,8 @@ function pathParamsOf(template) {
   return [...template.matchAll(/\{([^}]+)\}/g)].map((m) => m[1])
 }
 
-function renderMethod(op, method, template) {
-  const name = METHOD_NAMES[op.operationId]
-  if (!name) throw new Error(`No METHOD_NAMES entry for ${op.operationId}`)
+function renderMethod(op, method, template, resource) {
+  const name = METHOD_NAME_OVERRIDES[op.operationId] ?? deriveMethodName(op.operationId, resource)
 
   const pathParams = pathParamsOf(template)
   const params = op.parameters ?? []
@@ -210,7 +222,7 @@ async function main() {
       const resource = TAG_TO_RESOURCE[tag]
       if (!resource) { skipped.push(`${id} (no resource for tag "${tag}")`); continue }
 
-      const m = renderMethod(op, method, template)
+      const m = renderMethod(op, method, template, resource)
       if (m.optionsType) paramInterfaces.push(renderParamsInterface(m.operationId, m.query))
       if (!byResource.has(resource)) byResource.set(resource, [])
       byResource.get(resource).push(m)
