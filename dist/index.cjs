@@ -136,7 +136,7 @@ var GeneratedCongressResource = class {
   }
   /**
    * Query congressional STOCK Act trades (Free+, plan-clamped disclosure window)
-   * Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) — the STOCK Act allows up to 45 days of lag, so "real-time" here means minutes-after-disclosure, not minutes-after-trade. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). Query runs live against the database — no caching.
+   * Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). COVERAGE — HOUSE ONLY TODAY: every trade in this dataset comes from the U.S. House Clerk's PTR index. Senate eFD (efdsearch.senate.gov) returns 403 to datacenter traffic, so no Senate filings are ingested yet. chamber=Senate remains a valid filter but matches nothing and returns the response header X-Coverage-Note: chamber-not-covered, so an empty result is never ambiguous. Scanning by chamber should treat that header as "not covered", not as "no trades". PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate — see the coverage note above), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) — the STOCK Act allows up to 45 days of lag, so "real-time" here means minutes-after-disclosure, not minutes-after-trade. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). Query runs live against the database — no caching.
    */
   async trades(params) {
     return this.client._get(`/v1/congress/trades`, toQuery(params));
@@ -166,6 +166,13 @@ var GeneratedFilingsResource = class {
    */
   async get(accession) {
     return this.client._get(`/v1/filings/${encodeURIComponent(accession)}`);
+  }
+  /**
+   * List Form 4 filings with optional ticker, CIK and date filters
+   * Returns a paginated list of Form 4 filings, newest filed first. Filter by ticker, cik, and a from/to filed-date window. Each entry carries the accession number, company ticker/name, period of report, filed date, amendment type (Original/Amendment), and the count of non-superseded transactions in that filing. Use this for a company's filing HISTORY; use GET /v1/filings/recent for a live newest-first feed (it has no page parameter), and GET /v1/transactions when you want the individual trades rather than the filings that contain them. `limit` is accepted as an alias for `per_page`. Not plan-gated.
+   */
+  async list(params) {
+    return this.client._get(`/v1/filings`, toQuery(params));
   }
   /**
    * Get the most recently filed Form 4s, optionally filtered by ticker
@@ -213,6 +220,30 @@ var GeneratedInsidersResource = class {
     this.client = client;
   }
   client;
+  /**
+     * Browse insiders alphabetically by surname
+     * Returns the A-Z rail with a count per letter, plus one page of insiders under the
+  requested letter. Omit `letter` to get the rail and totals with no rows.
+  
+  Names come from EDGAR surname-first ("HENNEMAN JOHN B III"), so alphabetical order
+  is order by surname. Casing in the source is inconsistent and is not normalised here.
+  
+  This lists only insiders with at least 3 non-superseded transactions, capped at the
+  5,000 most active — the same set as the insiders sitemap shard, so the two cannot
+  drift. To find someone outside that set, use GET /v1/insiders?name= which searches
+  every filer. Rebuilt daily; `refreshedAt` reports when. Not plan-gated.
+  
+  One row per FILER GROUP. A fund group files a single Form 4 listing several
+  reporting owners — the fund, its GP, its management company — and each is a real
+  EDGAR filer with its own CIK. Listing all of them spent about 11% of this capped
+  surface describing the same actors more than once, so browse shows one per group
+  and `filerGroupSize` says how many others share those exact transactions. The
+  others are not hidden: each keeps its own profile and is still returned by
+  GET /v1/insiders?name=.
+     */
+  async directory(params) {
+    return this.client._get(`/v1/insiders/directory`, toQuery(params));
+  }
   /**
      * Ranked leaderboard of insiders by buy track-record (Business plan+)
      * Returns the top insiders ranked by historical buy performance — same scored-buy methodology as
