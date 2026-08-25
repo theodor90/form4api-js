@@ -199,6 +199,25 @@ export interface DataQualityResponse {
   amendments: AmendmentMetrics;
 }
 
+export interface DirectoryEntryResponse {
+  cik: string;
+  name: string;
+  primaryTicker: string | null;
+  primaryCompanyName: string | null;
+  isDirector: boolean;
+  isOfficer: boolean;
+  isTenPercentOwner: boolean;
+  officerTitle: string | null;
+  transactionCount: number;
+  lastFiledAt: string | null;
+  filerGroupSize: number;
+}
+
+export interface DirectoryLetter {
+  letter: string;
+  count: number;
+}
+
 export interface ExcludedTradeEntry {
   insiderCik: string;
   insiderName: string;
@@ -311,6 +330,17 @@ export interface InsiderCompanyEntry {
   companyName: string;
   transactionCount: number;
   firstSeen: string;
+}
+
+export interface InsiderDirectoryResponse {
+  total: number;
+  letters: DirectoryLetter[];
+  letter: string | null;
+  letterTotal: number;
+  page: number;
+  perPage: number;
+  refreshedAt: string | null;
+  entries: DirectoryEntryResponse[];
 }
 
 export interface InsiderLeaderboardResponse {
@@ -608,6 +638,15 @@ export interface ListInsidersParams {
   per_page?: number;
 }
 
+export interface GetInsiderDirectoryParams {
+  /** Single letter A-Z to list, or "#" for names that do not begin with a letter. Omit to get the A-Z rail and totals without any rows. */
+  letter?: string;
+  /** 1-based page number within the letter. Defaults to 1. */
+  page?: number;
+  /** Rows per page. Defaults to 200, maximum 500. */
+  per_page?: number;
+}
+
 export interface GetInsiderLeaderboardParams {
   /** "3m" or "6m" — the post-trade return horizon to score and rank by. Defaults to "3m". */
   horizon?: string;
@@ -623,6 +662,23 @@ export interface ListCompaniesParams {
   /** Sort order: "name" (alphabetical, default) or "totalfilings" (most SEC filings first). Case-insensitive; unrecognized values fall back to "name". */
   sort?: string;
   /** Maximum number of companies to return. Defaults to 50, maximum 50. */
+  limit?: number;
+}
+
+export interface ListFilingsParams {
+  /** Company ticker symbol, case-insensitive (e.g. "AAPL"). */
+  ticker?: string;
+  /** Company CIK (SEC identifier), e.g. "0000320193". Leading zeros optional. */
+  cik?: string;
+  /** Inclusive start of the filed-date window, format YYYY-MM-DD. */
+  from?: string;
+  /** Inclusive end of the filed-date window, format YYYY-MM-DD. */
+  to?: string;
+  /** 1-based page number. Defaults to 1. */
+  page?: number;
+  /** Filings per page. Defaults to 20, maximum 100. `limit` is accepted as an alias; if both are given, per_page wins. */
+  per_page?: number;
+  /** Alias for per_page. Accepted because every caller who hit this path before it existed sent `limit`. */
   limit?: number;
 }
 
@@ -663,7 +719,7 @@ export interface ListCongressTradesParams {
   politician?: string;
   /** Party as disclosed by the source, case-insensitive exact match (e.g. "D", "R", "Democratic"). Free-text — not a fixed enum, so this matches whatever string the source reported. */
   party?: string;
-  /** "House" or "Senate", case-insensitive. */
+  /** "House" or "Senate", case-insensitive. COVERAGE: this dataset currently holds House PTRs only — Senate eFD blocks datacenter traffic, so chamber=Senate is a valid filter over data we do not yet have and returns an empty array with the response header X-Coverage-Note: chamber-not-covered. */
   chamber?: string;
   /** Two-letter US state/territory code, case-insensitive exact match (e.g. "CA"). */
   state?: string;
@@ -745,7 +801,7 @@ export class GeneratedCongressResource {
 
   /**
    * Query congressional STOCK Act trades (Free+, plan-clamped disclosure window)
-   * Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) — the STOCK Act allows up to 45 days of lag, so "real-time" here means minutes-after-disclosure, not minutes-after-trade. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). Query runs live against the database — no caching.
+   * Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). COVERAGE — HOUSE ONLY TODAY: every trade in this dataset comes from the U.S. House Clerk's PTR index. Senate eFD (efdsearch.senate.gov) returns 403 to datacenter traffic, so no Senate filings are ingested yet. chamber=Senate remains a valid filter but matches nothing and returns the response header X-Coverage-Note: chamber-not-covered, so an empty result is never ambiguous. Scanning by chamber should treat that header as "not covered", not as "no trades". PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate — see the coverage note above), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) — the STOCK Act allows up to 45 days of lag, so "real-time" here means minutes-after-disclosure, not minutes-after-trade. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). Query runs live against the database — no caching.
    */
   async trades(params?: ListCongressTradesParams): Promise<CongressTradeDto[]> {
     return this.client._get<CongressTradeDto[]>(`/v1/congress/trades`, toQuery(params));
@@ -773,6 +829,14 @@ export class GeneratedFilingsResource {
    */
   async get(accession: string): Promise<FilingResponse> {
     return this.client._get<FilingResponse>(`/v1/filings/${encodeURIComponent(accession)}`);
+  }
+
+  /**
+   * List Form 4 filings with optional ticker, CIK and date filters
+   * Returns a paginated list of Form 4 filings, newest filed first. Filter by ticker, cik, and a from/to filed-date window. Each entry carries the accession number, company ticker/name, period of report, filed date, amendment type (Original/Amendment), and the count of non-superseded transactions in that filing. Use this for a company's filing HISTORY; use GET /v1/filings/recent for a live newest-first feed (it has no page parameter), and GET /v1/transactions when you want the individual trades rather than the filings that contain them. `limit` is accepted as an alias for `per_page`. Not plan-gated.
+   */
+  async list(params?: ListFilingsParams): Promise<FilingResponse[]> {
+    return this.client._get<FilingResponse[]>(`/v1/filings`, toQuery(params));
   }
 
   /**
@@ -818,6 +882,31 @@ export class GeneratedHoldingsResource {
 
 export class GeneratedInsidersResource {
   constructor(protected readonly client: Form4ApiClient) {}
+
+  /**
+   * Browse insiders alphabetically by surname
+   * Returns the A-Z rail with a count per letter, plus one page of insiders under the
+requested letter. Omit `letter` to get the rail and totals with no rows.
+
+Names come from EDGAR surname-first ("HENNEMAN JOHN B III"), so alphabetical order
+is order by surname. Casing in the source is inconsistent and is not normalised here.
+
+This lists only insiders with at least 3 non-superseded transactions, capped at the
+5,000 most active — the same set as the insiders sitemap shard, so the two cannot
+drift. To find someone outside that set, use GET /v1/insiders?name= which searches
+every filer. Rebuilt daily; `refreshedAt` reports when. Not plan-gated.
+
+One row per FILER GROUP. A fund group files a single Form 4 listing several
+reporting owners — the fund, its GP, its management company — and each is a real
+EDGAR filer with its own CIK. Listing all of them spent about 11% of this capped
+surface describing the same actors more than once, so browse shows one per group
+and `filerGroupSize` says how many others share those exact transactions. The
+others are not hidden: each keeps its own profile and is still returned by
+GET /v1/insiders?name=.
+   */
+  async directory(params?: GetInsiderDirectoryParams): Promise<InsiderDirectoryResponse> {
+    return this.client._get<InsiderDirectoryResponse>(`/v1/insiders/directory`, toQuery(params));
+  }
 
   /**
    * Ranked leaderboard of insiders by buy track-record (Business plan+)
