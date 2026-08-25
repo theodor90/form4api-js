@@ -225,6 +225,19 @@ async function main() {
       const m = renderMethod(op, method, template, resource)
       if (m.optionsType) paramInterfaces.push(renderParamsInterface(m.operationId, m.query))
       if (!byResource.has(resource)) byResource.set(resource, [])
+      // Names are derived now, not hand-assigned, so two operations on one
+      // resource can collide where previously a human would have noticed while
+      // typing the second entry. Emitting both would put duplicate members in
+      // one class — TypeScript would eventually complain, but about the
+      // generated file rather than about the cause. Fail here, naming both.
+      const clash = byResource.get(resource).find((existing) => existing.name === m.name)
+      if (clash) {
+        throw new Error(
+          `Derived method name collision: ${resource}.${m.name}() from both ` +
+            `${clash.operationId} and ${m.operationId}. Pin one of them in ` +
+            `METHOD_NAME_OVERRIDES.`,
+        )
+      }
       byResource.get(resource).push(m)
       generated++
     }
