@@ -36,6 +36,44 @@ function captureGet(path: string, body: unknown) {
 }
 
 describe("generated resource families", () => {
+  // The two methods that arrived by derivation rather than by a hand-written
+  // METHOD_NAMES entry. Codegen could not run at all between 2026-08-04 and
+  // 2026-08-25, so these are the first endpoints to reach this SDK without
+  // anyone naming them — worth pinning that they are wired to the right paths
+  // and not just present on the class.
+  it("filings.list hits /v1/filings and forwards its filters", async () => {
+    const seen = captureGet("/v1/filings", [{ accessionNumber: "0001-24-000001" }]);
+    const res = await makeClient().filings.list({ ticker: "AAPL", per_page: 5 });
+
+    expect(res).toEqual([{ accessionNumber: "0001-24-000001" }]);
+    expect(seen()!.pathname).toBe("/v1/filings");
+    expect(seen()!.searchParams.get("ticker")).toBe("AAPL");
+    expect(seen()!.searchParams.get("per_page")).toBe("5");
+  });
+
+  it("filings.list is a different endpoint from filings.recent", async () => {
+    // Derivation gave both the resource-stripped name; if it had collapsed
+    // them, one would silently shadow the other.
+    const seen = captureGet("/v1/filings/recent", []);
+    await makeClient().filings.recent();
+    expect(seen()!.pathname).toBe("/v1/filings/recent");
+  });
+
+  it("insiders.directory hits /v1/insiders/directory and forwards letter", async () => {
+    const seen = captureGet("/v1/insiders/directory", { letters: [], insiders: [] });
+    const res = await makeClient().insiders.directory({ letter: "S", per_page: 200 });
+
+    expect(res).toEqual({ letters: [], insiders: [] });
+    expect(seen()!.pathname).toBe("/v1/insiders/directory");
+    expect(seen()!.searchParams.get("letter")).toBe("S");
+  });
+
+  it("insiders.directory does not shadow insiders.list", async () => {
+    const seen = captureGet("/v1/insiders", []);
+    await makeClient().insiders.list();
+    expect(seen()!.pathname).toBe("/v1/insiders");
+  });
+
   it("form144.list hits /v1/forms144 path and forwards query params", async () => {
     const seen = captureGet("/v1/form144", [{ ticker: "AAPL" }]);
     const res = await makeClient().form144.list({ ticker: "AAPL", per_page: 5 });
