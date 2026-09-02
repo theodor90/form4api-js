@@ -1,5 +1,6 @@
 import type { Form4ApiClient } from "../client.js";
-import type { Transaction, TransactionListParams } from "../types.js";
+import type { PaginateOptions, Transaction, TransactionListParams } from "../types.js";
+import { isPaginationDepthError, PaginationLimitError } from "../errors.js";
 
 export class TransactionsResource {
   constructor(private readonly client: Form4ApiClient) {}
@@ -28,13 +29,45 @@ export class TransactionsResource {
     return this.client._get<Transaction[]>("/v1/transactions", q);
   }
 
-  async *paginate(params: Omit<TransactionListParams, "page"> = {}): AsyncGenerator<Transaction[]> {
-    let page = 1;
+  /**
+   * Pages through /v1/transactions until the data runs out (a short or empty
+   * page) or, since the backend's 2026-08-01 plan-gated pagination depth
+   * (Free: 20 pages, Starter: 100, Pro+: unlimited), the next page is
+   * rejected with 402. That 402 is NOT swallowed — a scripted caller who
+   * silently stopped there would see what looks like "no more data" and
+   * never learn their dataset was truncated. Instead this throws
+   * `PaginationLimitError` mid-iteration, after every page already yielded
+   * has been delivered to the caller. Pass `maxPages` to stop deliberately
+   * before that ever happens.
+   */
+  async *paginate(
+    params: Omit<TransactionListParams, "page"> = {},
+    options: PaginateOptions = {},
+  ): AsyncGenerator<Transaction[]> {
     const perPage = params.perPage ?? 50;
+    const maxPages = options.maxPages;
+    let page = 1;
+    let pagesYielded = 0;
     while (true) {
-      const batch = await this.list({ ...params, page, perPage });
+      if (maxPages !== undefined && pagesYielded >= maxPages) break;
+
+      let batch: Transaction[];
+      try {
+        batch = await this.list({ ...params, page, perPage });
+      } catch (err) {
+        if (isPaginationDepthError(err)) {
+          throw new PaginationLimitError(
+            `transactions.paginate() stopped after yielding ${pagesYielded} page(s) — ${err.message}`,
+            pagesYielded,
+            err,
+          );
+        }
+        throw err;
+      }
+
       if (batch.length === 0) break;
       yield batch;
+      pagesYielded++;
       if (batch.length < perPage) break;
       page++;
     }

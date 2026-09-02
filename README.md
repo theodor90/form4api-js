@@ -70,9 +70,19 @@ const txns = await client.transactions.list({
   perPage?: number;       // max 100 for /v1/transactions (500 for other list endpoints)
 });
 
-// Paginate (async generator)
-for await (const page of client.transactions.paginate({ ticker: "AAPL" })) {
-  // page: Transaction[]
+// Paginate (async generator) — stops on a short/empty page, or throws
+// PaginationLimitError if the key's plan-gated pagination depth is hit
+// (Free: 20 pages, Starter: 100, Pro+: unlimited). Pages already yielded
+// are still delivered before that error is thrown. Pass maxPages to stop
+// deliberately before that ever happens.
+try {
+  for await (const page of client.transactions.paginate({ ticker: "AAPL" }, { maxPages: 20 })) {
+    // page: Transaction[]
+  }
+} catch (err) {
+  if (err instanceof PaginationLimitError) {
+    console.log(`Stopped after ${err.pagesYielded} pages — upgrade to go deeper`);
+  }
 }
 ```
 
@@ -129,8 +139,9 @@ const signals = await client.signals.list({
   perPage?: number;
 });
 
-// Paginate (async generator)
-for await (const page of client.signals.paginate({ clusterBuy: true })) {
+// Paginate (async generator) — same plan-gated depth limit and
+// PaginationLimitError behavior as client.transactions.paginate() above.
+for await (const page of client.signals.paginate({ clusterBuy: true }, { maxPages: 20 })) {
   // page: InsiderSignal[]
 }
 ```
@@ -180,7 +191,7 @@ For LLM workflows, `form4api-mcp` exposes the same endpoints as tools.
 ## Error handling
 
 ```typescript
-import { AuthError, PlanError, RateLimitError, NotFoundError } from "form4api";
+import { AuthError, PlanError, PaginationLimitError, RateLimitError, NotFoundError } from "form4api";
 
 try {
   const signals = await client.signals.list();
@@ -192,6 +203,37 @@ try {
   } else if (err instanceof AuthError) {
     console.log("Invalid API key");
   }
+}
+```
+
+### Pagination limits
+
+`transactions.paginate()` and `signals.paginate()` keep requesting pages until
+the data runs out — or, since the backend's 2026-08-01 plan-gated pagination
+depth (Free: 20 pages, Starter: 100, Pro+: unlimited), until the next page is
+rejected with a 402. That 402 is never swallowed: it surfaces mid-iteration as
+`PaginationLimitError`, thrown only after every page already yielded has been
+delivered to your loop — `pagesYielded` tells you exactly how many, and the
+original `PlanError` is preserved as `err.cause`.
+
+```typescript
+try {
+  for await (const page of client.transactions.paginate({ ticker: "AAPL" })) {
+    // ...
+  }
+} catch (err) {
+  if (err instanceof PaginationLimitError) {
+    console.log(`Stopped after ${err.pagesYielded} pages — ${err.message}`);
+  }
+}
+```
+
+Pass `maxPages` in the second argument to stop deliberately before the plan's
+depth limit is ever reached:
+
+```typescript
+for await (const page of client.transactions.paginate({ ticker: "AAPL" }, { maxPages: 10 })) {
+  // ...
 }
 ```
 

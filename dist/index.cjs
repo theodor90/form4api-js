@@ -34,6 +34,7 @@ __export(index_exports, {
   GeneratedStatusResource: () => GeneratedStatusResource,
   InsiderApiError: () => InsiderApiError,
   NotFoundError: () => NotFoundError,
+  PaginationLimitError: () => PaginationLimitError,
   PlanError: () => PlanError,
   RateLimitError: () => RateLimitError
 });
@@ -83,6 +84,20 @@ var RateLimitError = class extends InsiderApiError {
     super(message, 429, "RATE_LIMIT_EXCEEDED");
     this.name = "RateLimitError";
     this.retryAfter = retryAfter;
+  }
+};
+var PAGINATION_DEPTH_MESSAGE_RE = /pagination depth on \/v1\//i;
+function isPaginationDepthError(err) {
+  return err instanceof PlanError && PAGINATION_DEPTH_MESSAGE_RE.test(err.message);
+}
+var PaginationLimitError = class extends InsiderApiError {
+  /** Number of pages successfully yielded by paginate() before this error. */
+  pagesYielded;
+  constructor(message, pagesYielded, cause) {
+    super(message, 402, "PLAN_REQUIRED");
+    this.name = "PaginationLimitError";
+    this.pagesYielded = pagesYielded;
+    this.cause = cause;
   }
 };
 
@@ -399,13 +414,37 @@ var SignalsResource = class extends GeneratedSignalsResource {
     q["per_page"] = String(params.perPage ?? 100);
     return this.client._get("/v1/signals", q);
   }
-  async *paginate(params = {}) {
-    let page = 1;
+  /**
+   * Pages through /v1/signals until the data runs out (a short or empty
+   * page) or the calling key's plan-gated pagination depth is exceeded — see
+   * `TransactionsResource.paginate` for the full rationale. That 402 is NOT
+   * swallowed; it becomes a `PaginationLimitError` after every page already
+   * yielded has been delivered to the caller. Pass `maxPages` to stop
+   * deliberately before that happens.
+   */
+  async *paginate(params = {}, options = {}) {
     const perPage = params.perPage ?? 100;
+    const maxPages = options.maxPages;
+    let page = 1;
+    let pagesYielded = 0;
     while (true) {
-      const batch = await this.list({ ...params, page, perPage });
+      if (maxPages !== void 0 && pagesYielded >= maxPages) break;
+      let batch;
+      try {
+        batch = await this.list({ ...params, page, perPage });
+      } catch (err) {
+        if (isPaginationDepthError(err)) {
+          throw new PaginationLimitError(
+            `signals.paginate() stopped after yielding ${pagesYielded} page(s) \u2014 ${err.message}`,
+            pagesYielded,
+            err
+          );
+        }
+        throw err;
+      }
       if (batch.length === 0) break;
       yield batch;
+      pagesYielded++;
       if (batch.length < perPage) break;
       page++;
     }
@@ -441,13 +480,40 @@ var TransactionsResource = class {
     q["per_page"] = String(params.perPage ?? 50);
     return this.client._get("/v1/transactions", q);
   }
-  async *paginate(params = {}) {
-    let page = 1;
+  /**
+   * Pages through /v1/transactions until the data runs out (a short or empty
+   * page) or, since the backend's 2026-08-01 plan-gated pagination depth
+   * (Free: 20 pages, Starter: 100, Pro+: unlimited), the next page is
+   * rejected with 402. That 402 is NOT swallowed — a scripted caller who
+   * silently stopped there would see what looks like "no more data" and
+   * never learn their dataset was truncated. Instead this throws
+   * `PaginationLimitError` mid-iteration, after every page already yielded
+   * has been delivered to the caller. Pass `maxPages` to stop deliberately
+   * before that ever happens.
+   */
+  async *paginate(params = {}, options = {}) {
     const perPage = params.perPage ?? 50;
+    const maxPages = options.maxPages;
+    let page = 1;
+    let pagesYielded = 0;
     while (true) {
-      const batch = await this.list({ ...params, page, perPage });
+      if (maxPages !== void 0 && pagesYielded >= maxPages) break;
+      let batch;
+      try {
+        batch = await this.list({ ...params, page, perPage });
+      } catch (err) {
+        if (isPaginationDepthError(err)) {
+          throw new PaginationLimitError(
+            `transactions.paginate() stopped after yielding ${pagesYielded} page(s) \u2014 ${err.message}`,
+            pagesYielded,
+            err
+          );
+        }
+        throw err;
+      }
       if (batch.length === 0) break;
       yield batch;
+      pagesYielded++;
       if (batch.length < perPage) break;
       page++;
     }
@@ -638,6 +704,7 @@ var Form4ApiClient = class {
   GeneratedStatusResource,
   InsiderApiError,
   NotFoundError,
+  PaginationLimitError,
   PlanError,
   RateLimitError
 });

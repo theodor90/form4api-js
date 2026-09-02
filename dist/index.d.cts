@@ -128,6 +128,17 @@ interface SignalListParams {
 interface WebhookEventParams {
     since?: string;
 }
+interface PaginateOptions {
+    /**
+     * Stop after yielding this many pages, even if more data is available.
+     * Default: unbounded — `paginate()` keeps requesting pages until the API
+     * returns a short/empty page or (since the backend's 2026-08-01 plan-gated
+     * pagination depth) rejects the next page with a `PaginationLimitError`.
+     * Set this to give a script a deterministic stopping point without relying
+     * on hitting the plan's depth limit.
+     */
+    maxPages?: number;
+}
 
 interface AmendmentMetrics {
     supersededTransactions: number;
@@ -1004,14 +1015,33 @@ declare class InsidersResource extends GeneratedInsidersResource {
 declare class SignalsResource extends GeneratedSignalsResource {
     constructor(client: Form4ApiClient);
     list(params?: SignalListParams): Promise<InsiderSignal[]>;
-    paginate(params?: Omit<SignalListParams, "page">): AsyncGenerator<InsiderSignal[]>;
+    /**
+     * Pages through /v1/signals until the data runs out (a short or empty
+     * page) or the calling key's plan-gated pagination depth is exceeded — see
+     * `TransactionsResource.paginate` for the full rationale. That 402 is NOT
+     * swallowed; it becomes a `PaginationLimitError` after every page already
+     * yielded has been delivered to the caller. Pass `maxPages` to stop
+     * deliberately before that happens.
+     */
+    paginate(params?: Omit<SignalListParams, "page">, options?: PaginateOptions): AsyncGenerator<InsiderSignal[]>;
 }
 
 declare class TransactionsResource {
     private readonly client;
     constructor(client: Form4ApiClient);
     list(params?: TransactionListParams): Promise<Transaction[]>;
-    paginate(params?: Omit<TransactionListParams, "page">): AsyncGenerator<Transaction[]>;
+    /**
+     * Pages through /v1/transactions until the data runs out (a short or empty
+     * page) or, since the backend's 2026-08-01 plan-gated pagination depth
+     * (Free: 20 pages, Starter: 100, Pro+: unlimited), the next page is
+     * rejected with 402. That 402 is NOT swallowed — a scripted caller who
+     * silently stopped there would see what looks like "no more data" and
+     * never learn their dataset was truncated. Instead this throws
+     * `PaginationLimitError` mid-iteration, after every page already yielded
+     * has been delivered to the caller. Pass `maxPages` to stop deliberately
+     * before that ever happens.
+     */
+    paginate(params?: Omit<TransactionListParams, "page">, options?: PaginateOptions): AsyncGenerator<Transaction[]>;
 }
 
 declare class WebhooksResource {
@@ -1081,5 +1111,20 @@ declare class RateLimitError extends InsiderApiError {
     readonly retryAfter: number | undefined;
     constructor(message: string, retryAfter?: number);
 }
+/**
+ * Thrown by `paginate()` (on `transactions` and `signals`) when the backend
+ * rejects the next page because the calling key's plan has reached its
+ * pagination depth limit (Free: 20 pages, Starter: 100, Pro+: unlimited).
+ *
+ * Pages already yielded before this point were real, complete pages — this
+ * error only means iteration stopped early, not that any data already
+ * delivered to the caller was wrong. `pagesYielded` tells you exactly how
+ * many. The original `PlanError` is preserved as `cause`.
+ */
+declare class PaginationLimitError extends InsiderApiError {
+    /** Number of pages successfully yielded by paginate() before this error. */
+    readonly pagesYielded: number;
+    constructor(message: string, pagesYielded: number, cause: unknown);
+}
 
-export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ManagerResponse, NotFoundError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type ScorecardTradeRef, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookCreated, type WebhookEvent, type WebhookEventParams, type WebhookSubscription };
+export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ManagerResponse, NotFoundError, type PaginateOptions, PaginationLimitError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type ScorecardTradeRef, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookCreated, type WebhookEvent, type WebhookEventParams, type WebhookSubscription };

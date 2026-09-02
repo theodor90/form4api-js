@@ -10,6 +10,7 @@ export {
   AuthError,
   InsiderApiError,
   NotFoundError,
+  PaginationLimitError,
   PlanError,
   RateLimitError,
 } from "./errors.js";
@@ -19,6 +20,7 @@ export type {
   Insider,
   InsiderSignal,
   InsiderTransactionParams,
+  PaginateOptions,
   SignalListParams,
   Transaction,
   TransactionListParams,
