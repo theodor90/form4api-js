@@ -48,11 +48,12 @@ var PAGINATION_DEPTH_MESSAGE_RE = /pagination depth on \/v1\//i;
 function isPaginationDepthError(err) {
   return err instanceof PlanError && PAGINATION_DEPTH_MESSAGE_RE.test(err.message);
 }
-var PaginationLimitError = class extends InsiderApiError {
+var PaginationLimitError = class extends PlanError {
   /** Number of pages successfully yielded by paginate() before this error. */
   pagesYielded;
   constructor(message, pagesYielded, cause) {
-    super(message, 402, "PLAN_REQUIRED");
+    const original = cause instanceof PlanError ? cause : void 0;
+    super(message, original?.requiredPlan, original?.currentPlan, original?.upgradeUrl);
     this.name = "PaginationLimitError";
     this.pagesYielded = pagesYielded;
     this.cause = cause;
@@ -501,7 +502,7 @@ var WebhooksResource = class {
 };
 
 // src/version.ts
-var SDK_VERSION = "1.3.0";
+var SDK_VERSION = "1.4.0";
 
 // src/client.ts
 var DEFAULT_BASE_URL = "https://api.form4api.com";
