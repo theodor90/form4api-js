@@ -85,13 +85,26 @@ export function isPaginationDepthError(err: unknown): err is PlanError {
  * error only means iteration stopped early, not that any data already
  * delivered to the caller was wrong. `pagesYielded` tells you exactly how
  * many. The original `PlanError` is preserved as `cause`.
+ *
+ * **Extends `PlanError` deliberately.** Before this type existed, `paginate()`
+ * threw a plain `PlanError` at the depth limit, so code written as
+ * `catch (e) { if (e instanceof PlanError) ... }` was the documented way to
+ * handle it. Subclassing keeps every one of those handlers working while
+ * letting new code catch the narrower type — and it is the truthful
+ * relationship anyway, since this IS a 402 PLAN_REQUIRED. Making it a sibling
+ * would break existing callers for no gain.
  */
-export class PaginationLimitError extends InsiderApiError {
+export class PaginationLimitError extends PlanError {
   /** Number of pages successfully yielded by paginate() before this error. */
   readonly pagesYielded: number;
 
   constructor(message: string, pagesYielded: number, cause: unknown) {
-    super(message, 402, "PLAN_REQUIRED");
+    // Carry the upgrade metadata through from the original 402 where the
+    // backend supplied it, so a caller can link straight to the upgrade page
+    // without unwrapping `cause` themselves. The depth-limit branch populates
+    // upgradeUrl but leaves requiredPlan/currentPlan null.
+    const original = cause instanceof PlanError ? cause : undefined;
+    super(message, original?.requiredPlan, original?.currentPlan, original?.upgradeUrl);
     this.name = "PaginationLimitError";
     this.pagesYielded = pagesYielded;
     this.cause = cause;

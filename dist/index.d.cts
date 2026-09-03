@@ -1120,8 +1120,16 @@ declare class RateLimitError extends InsiderApiError {
  * error only means iteration stopped early, not that any data already
  * delivered to the caller was wrong. `pagesYielded` tells you exactly how
  * many. The original `PlanError` is preserved as `cause`.
+ *
+ * **Extends `PlanError` deliberately.** Before this type existed, `paginate()`
+ * threw a plain `PlanError` at the depth limit, so code written as
+ * `catch (e) { if (e instanceof PlanError) ... }` was the documented way to
+ * handle it. Subclassing keeps every one of those handlers working while
+ * letting new code catch the narrower type — and it is the truthful
+ * relationship anyway, since this IS a 402 PLAN_REQUIRED. Making it a sibling
+ * would break existing callers for no gain.
  */
-declare class PaginationLimitError extends InsiderApiError {
+declare class PaginationLimitError extends PlanError {
     /** Number of pages successfully yielded by paginate() before this error. */
     readonly pagesYielded: number;
     constructor(message: string, pagesYielded: number, cause: unknown);

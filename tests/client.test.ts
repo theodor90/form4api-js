@@ -273,6 +273,18 @@ describe("transactions", () => {
     expect(err.message).toContain("yielding 2 page(s)");
     expect(err.message).toContain("/v1/transactions/export");
     expect(err.cause).toBeInstanceOf(PlanError);
+
+    // Backward compatibility, and the reason PaginationLimitError extends
+    // PlanError rather than sitting beside it. Before this type existed,
+    // paginate() threw a plain PlanError here, so
+    // `catch (e) { if (e instanceof PlanError) ... }` was the documented way to
+    // handle the depth limit. If this assertion ever fails, every caller
+    // written against the old behaviour silently stops catching this — an
+    // uncaught exception rather than a handled upgrade path.
+    expect(err).toBeInstanceOf(PlanError);
+    // The upgrade metadata is carried through from the original 402 so callers
+    // do not have to unwrap `cause` to find it.
+    expect(err.upgradeUrl).toBe((err.cause as PlanError).upgradeUrl);
   });
 
   it("paginate maxPages stops iteration at the bound before the API's own depth limit is reached", async () => {
