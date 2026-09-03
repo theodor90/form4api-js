@@ -5,6 +5,7 @@ import {
   Form4ApiClient,
   AuthError,
   PlanError,
+  PaginationLimitError,
   NotFoundError,
   RateLimitError,
   InsiderApiError,
@@ -229,6 +230,93 @@ describe("transactions", () => {
     }
     expect(pages).toHaveLength(1);
   });
+
+  it("paginate raises PaginationLimitError on the plan's pagination-depth 402, after delivering prior pages", async () => {
+    let call = 0;
+    server.use(
+      http.get(`${BASE}/v1/transactions`, () => {
+        call++;
+        if (call <= 2) return HttpResponse.json([TRANSACTION, TRANSACTION]);
+        return HttpResponse.json(
+          {
+            error: {
+              code: "PLAN_REQUIRED",
+              message:
+                "Page 3 is beyond the Free plan's pagination depth on /v1/transactions (2 pages). " +
+                "The Starter plan reaches 100 pages and Pro removes the limit — upgrade at " +
+                "https://form4api.com/dashboard/billing?from=page_depth_402. For a bulk historical pull, " +
+                "GET /v1/transactions/export (Business plan) streams the full filtered set as CSV " +
+                "instead of paging.",
+              requestId: "req_test",
+            },
+          },
+          { status: 402 },
+        );
+      }),
+    );
+
+    const pages: unknown[] = [];
+    let thrown: unknown;
+    try {
+      for await (const page of makeClient().transactions.paginate({ perPage: 2 })) {
+        pages.push(page);
+      }
+    } catch (err) {
+      thrown = err;
+    }
+
+    // Pages already yielded before the depth limit hit are still delivered.
+    expect(pages).toHaveLength(2);
+    expect(thrown).toBeInstanceOf(PaginationLimitError);
+    const err = thrown as PaginationLimitError;
+    expect(err.pagesYielded).toBe(2);
+    expect(err.message).toContain("yielding 2 page(s)");
+    expect(err.message).toContain("/v1/transactions/export");
+    expect(err.cause).toBeInstanceOf(PlanError);
+  });
+
+  it("paginate maxPages stops iteration at the bound before the API's own depth limit is reached", async () => {
+    let call = 0;
+    server.use(
+      http.get(`${BASE}/v1/transactions`, () => {
+        call++;
+        return HttpResponse.json([TRANSACTION, TRANSACTION]);
+      }),
+    );
+    const pages: unknown[] = [];
+    for await (const page of makeClient().transactions.paginate(
+      { perPage: 2 },
+      { maxPages: 3 },
+    )) {
+      pages.push(page);
+    }
+    expect(pages).toHaveLength(3);
+    expect(call).toBe(3);
+  });
+
+  it("paginate does not swallow or mislabel a non-402 error mid-iteration", async () => {
+    let call = 0;
+    server.use(
+      http.get(`${BASE}/v1/transactions`, () => {
+        call++;
+        if (call === 1) return HttpResponse.json([TRANSACTION, TRANSACTION]);
+        return new HttpResponse("Internal error", { status: 500 });
+      }),
+    );
+    const pages: unknown[] = [];
+    let thrown: unknown;
+    try {
+      for await (const page of makeClient().transactions.paginate({ perPage: 2 })) {
+        pages.push(page);
+      }
+    } catch (err) {
+      thrown = err;
+    }
+    expect(pages).toHaveLength(1);
+    expect(thrown).toBeInstanceOf(InsiderApiError);
+    expect(thrown).not.toBeInstanceOf(PaginationLimitError);
+    expect((thrown as InsiderApiError).statusCode).toBe(500);
+  });
 });
 
 // ── insiders ──────────────────────────────────────────────────────────────────
@@ -341,6 +429,57 @@ describe("signals", () => {
       pages.push(page);
     }
     expect(pages).toHaveLength(1);
+  });
+
+  it("paginate maxPages stops iteration at the bound", async () => {
+    let call = 0;
+    server.use(
+      http.get(`${BASE}/v1/signals`, () => {
+        call++;
+        return HttpResponse.json([SIGNAL]);
+      }),
+    );
+    const pages: unknown[] = [];
+    for await (const page of makeClient().signals.paginate({ perPage: 1 }, { maxPages: 2 })) {
+      pages.push(page);
+    }
+    expect(pages).toHaveLength(2);
+    expect(call).toBe(2);
+  });
+
+  it("paginate re-raises a non-depth 402 (whole-endpoint plan gate) as PlanError, not PaginationLimitError", async () => {
+    // GET /v1/signals is gated at the whole-endpoint level (Business plan) —
+    // this 402 has nothing to do with pagination depth, and must not be
+    // rewritten as though it were the depth limit.
+    server.use(
+      http.get(`${BASE}/v1/signals`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "PLAN_REQUIRED",
+              message:
+                "This endpoint requires the Business plan or higher. Your current plan is Free.",
+              requestId: "req_test",
+              requiredPlan: "Business",
+              currentPlan: "Free",
+            },
+          },
+          { status: 402 },
+        ),
+      ),
+    );
+
+    let thrown: unknown;
+    try {
+      for await (const _page of makeClient().signals.paginate()) {
+        // no pages expected — first call already 402s
+      }
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(PlanError);
+    expect(thrown).not.toBeInstanceOf(PaginationLimitError);
+    expect((thrown as PlanError).requiredPlan).toBe("Business");
   });
 });
 

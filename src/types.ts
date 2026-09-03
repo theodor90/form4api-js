@@ -141,3 +141,17 @@ export interface SignalListParams {
 export interface WebhookEventParams {
   since?: string;
 }
+
+// ── pagination ────────────────────────────────────────────────────────────────
+
+export interface PaginateOptions {
+  /**
+   * Stop after yielding this many pages, even if more data is available.
+   * Default: unbounded — `paginate()` keeps requesting pages until the API
+   * returns a short/empty page or (since the backend's 2026-08-01 plan-gated
+   * pagination depth) rejects the next page with a `PaginationLimitError`.
+   * Set this to give a script a deterministic stopping point without relying
+   * on hitting the plan's depth limit.
+   */
+  maxPages?: number;
+}

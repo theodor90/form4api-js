@@ -55,3 +55,45 @@ export class RateLimitError extends InsiderApiError {
     this.retryAfter = retryAfter;
   }
 }
+
+// Backend message shape for the plan-gated *pagination depth* 402 (see
+// PaginationHelpers.MaxPageFor / TransactionsEndpoints.cs / CongressEndpoints.cs
+// on the API). This is deliberately narrow: `error.code` is "PLAN_REQUIRED" for
+// EVERY 402 the API returns — a whole-endpoint plan gate (e.g. GET /v1/signals
+// on a sub-Business key) and a plan-gated query parameter both use the same
+// code — so the message text is the only reliable signal that a given 402 is
+// specifically the depth limit rather than some other plan gate. If the
+// backend ever changes this message shape, the regex stops matching and
+// `paginate()` re-raises the original `PlanError` untouched instead of
+// mislabeling an unrelated 402.
+const PAGINATION_DEPTH_MESSAGE_RE = /pagination depth on \/v1\//i;
+
+/**
+ * True when `err` is specifically the plan-gated pagination-depth 402 that
+ * `paginate()` knows how to turn into a `PaginationLimitError`.
+ */
+export function isPaginationDepthError(err: unknown): err is PlanError {
+  return err instanceof PlanError && PAGINATION_DEPTH_MESSAGE_RE.test(err.message);
+}
+
+/**
+ * Thrown by `paginate()` (on `transactions` and `signals`) when the backend
+ * rejects the next page because the calling key's plan has reached its
+ * pagination depth limit (Free: 20 pages, Starter: 100, Pro+: unlimited).
+ *
+ * Pages already yielded before this point were real, complete pages — this
+ * error only means iteration stopped early, not that any data already
+ * delivered to the caller was wrong. `pagesYielded` tells you exactly how
+ * many. The original `PlanError` is preserved as `cause`.
+ */
+export class PaginationLimitError extends InsiderApiError {
+  /** Number of pages successfully yielded by paginate() before this error. */
+  readonly pagesYielded: number;
+
+  constructor(message: string, pagesYielded: number, cause: unknown) {
+    super(message, 402, "PLAN_REQUIRED");
+    this.name = "PaginationLimitError";
+    this.pagesYielded = pagesYielded;
+    this.cause = cause;
+  }
+}
