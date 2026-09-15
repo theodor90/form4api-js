@@ -1,6 +1,6 @@
 # form4api
 
-TypeScript SDK for [Form4API](https://www.form4api.com) — real-time SEC Form 4 insider trading data.
+TypeScript SDK for [Form4API](https://www.form4api.com) — real-time SEC Form 4 insider trading, Form 144 intent-to-sell, institutional 13F-HR, and congressional STOCK Act trading data, including the insider/Congress convergence signal.
 
 [![npm version](https://img.shields.io/npm/v/form4api.svg)](https://www.npmjs.com/package/form4api)
 [![npm downloads](https://img.shields.io/npm/dm/form4api.svg)](https://www.npmjs.com/package/form4api)
