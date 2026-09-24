@@ -20,6 +20,10 @@ export interface Transaction {
   isDerivative: boolean;
   transactionDate: string;
   periodOfReport: string;
+  /** Precise UTC SEC-acceptance instant, nullable. */
+  acceptedAt: string | null;
+  /** Public SEC document URL. */
+  documentUrl: string;
 }
 
 export interface Insider {
@@ -92,12 +96,19 @@ export interface CreatedKey {
 // ── request param shapes ──────────────────────────────────────────────────────
 
 export interface TransactionListParams {
+  /** Ticker symbol, case-insensitive. Also accepts a comma-separated list of up to 25 symbols, e.g. "AAPL,MSFT", to match any of them in one call. */
   ticker?: string;
   cik?: string;
   insiderCik?: string;
   code?: string;
+  /** Start date, inclusive (YYYY-MM-DD). Filters on transactionDate. */
   from?: string;
+  /** End date, inclusive (YYYY-MM-DD). Filters on transactionDate. */
   to?: string;
+  /** Inclusive start of the filed-date window (YYYY-MM-DD). Filters on Filing.FiledAt (when the filing became public), not transactionDate. */
+  filedFrom?: string;
+  /** Inclusive end of the filed-date window (YYYY-MM-DD). Filters on Filing.FiledAt. */
+  filedTo?: string;
   exclude10b5?: boolean;
   /** Comma-separated transaction codes to include, e.g. "P,S". */
   codes?: string;
@@ -120,6 +131,7 @@ export interface TransactionListParams {
   /** Maximum number of shares. Pro plan or higher. */
   maxShares?: number;
   page?: number;
+  /** Results per page (canonical). The backend also accepts a `limit` alias, but `perPage` is the name this SDK sends. */
   perPage?: number;
 }
 
