@@ -140,9 +140,9 @@ export interface CongressTradeDto {
   politician: CongressPoliticianRefDto;
   ticker: string | null;
   assetName: string;
-  assetType: string;
-  ownerType: string;
-  transactionType: string;
+  assetType: "Stock" | "Bond" | "Option" | "Fund" | "Crypto" | "Other" | "Unknown";
+  ownerType: "Self" | "Spouse" | "Joint" | "DependentChild" | "Unknown";
+  transactionType: "Purchase" | "Sale" | "PartialSale" | "Exchange" | "Unknown";
   amountLow: number | null;
   amountHigh: number | null;
   transactionDate: string;
@@ -586,7 +586,7 @@ export interface TransactionResponse {
   is10PctOwner: boolean;
   accessionNumber: string;
   securityTitle: string;
-  transactionCode: string;
+  transactionCode: "P" | "S" | "V" | "A" | "D" | "F" | "I" | "M" | "C" | "E" | "H" | "O" | "X" | "G" | "J" | "K" | "L" | "U" | "W" | "Z" | "B" | "T" | "Unknown";
   isOpenMarket: boolean;
   is10b5Plan: boolean;
   sharesAmount: number;
@@ -602,7 +602,7 @@ export interface TransactionResponse {
   return1m: number | null;
   return3m: number | null;
   return6m: number | null;
-  valueQuality: string | null;
+  valueQuality: "ImplausiblePrice" | "ImplausibleValue" | null | null;
   acceptedAt: string | null;
   documentUrl: string;
   institutionalOwnership?: InstitutionalOwnershipDto;

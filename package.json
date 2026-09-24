@@ -1,6 +1,6 @@
 {
   "name": "form4api",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "TypeScript SDK for Form4API — real-time SEC Form 4 insider trading, Form 144 intent-to-sell, institutional 13F-HR, and congressional STOCK Act trading data, including the insider/Congress convergence signal",
   "keywords": [
     "insider-trading",
