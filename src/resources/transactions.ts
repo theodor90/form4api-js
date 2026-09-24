@@ -13,6 +13,8 @@ export class TransactionsResource {
     if (params.code !== undefined) q["code"] = params.code;
     if (params.from !== undefined) q["from"] = params.from;
     if (params.to !== undefined) q["to"] = params.to;
+    if (params.filedFrom !== undefined) q["filed_from"] = params.filedFrom;
+    if (params.filedTo !== undefined) q["filed_to"] = params.filedTo;
     if (params.exclude10b5 !== undefined) q["exclude_10b5"] = String(params.exclude10b5);
     if (params.codes !== undefined) q["codes"] = params.codes;
     if (params.excludeCodes !== undefined) q["exclude_codes"] = params.excludeCodes;

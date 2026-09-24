@@ -21,6 +21,28 @@ function toQuery<T extends object>(params?: T): Record<string, string> | undefin
   return out;
 }
 
+export interface ErrorDetail {
+  /** Stable machine-readable error code, e.g. `PLAN_REQUIRED`. Branch on this, not on `message`. */
+  code: string;
+  /** Human-readable explanation. Wording may change; do not parse it. */
+  message: string;
+  /** Correlation id for this request. Quote it when contacting support. */
+  requestId: string;
+  /** Where to upgrade. Present on 402 and on quota-exceeded 429s. Omitted when not applicable. */
+  upgradeUrl?: string;
+  /** Minimum plan for this endpoint. Present on 402. Omitted when not applicable. */
+  requiredPlan?: string;
+  /** Caller's current plan. Present on 402. Omitted when not applicable. */
+  currentPlan?: string;
+  /** Machine-readable class of miss on a ticker 404: `punctuation_variant` (an alternate spelling was verified to exist) or `unrecognized` (the symbol is absent — this does not assert why). Omitted when not applicable. */
+  reason?: string;
+}
+
+/** Standard error envelope returned by every non-2xx response. */
+export interface ErrorResponse {
+  error: ErrorDetail;
+}
+
 export interface AmendmentMetrics {
   supersededTransactions: number;
 }
@@ -187,7 +209,7 @@ export interface CreateKeyRequest {
 export interface CreateWebhookRequest {
   /** Destination URL for event deliveries. Must be HTTPS and resolve to a public (non-private, non-loopback) address — validated at creation and re-validated at delivery time. */
   url: string | null;
-  /** Event types to subscribe to: "TransactionFiled", "ClusterBuy", "ClusterSell", "CongressTradeFiled" (STOCK Act trade ingested — payload includes disclosureLagDays, see the endpoint description). At least one is required. Some event types require a minimum plan (independent of the subscription count cap): CongressTradeFiled requires Starter or higher; requesting it on a lower plan rejects the whole request with 402 PLAN_REQUIRED. */
+  /** Event types to subscribe to (exact names the API returns as EventType values, not dotted names): "TransactionFiled" (Free — new Form 4 transaction), "ClusterBuy" (Free), "ClusterSell" (Free), "CongressTradeFiled" (Starter+ — STOCK Act trade ingested, payload includes disclosureLagDays, see the endpoint description), "ConvergenceSignal" (Pro+ — insider cluster-buy and a congressional purchase converged on the same ticker within the detector's window). At least one is required. Some event types require a minimum plan (independent of the subscription count cap, shown above per type); requesting one your plan doesn't meet rejects the whole request with 402 PLAN_REQUIRED. */
   eventTypes: string[] | null;
 }
 
@@ -235,6 +257,8 @@ export interface FilingResponse {
   filedAt: string;
   amendmentType: string;
   transactionCount: number;
+  acceptedAt: string | null;
+  documentUrl: string;
 }
 
 export interface Form144Response {
@@ -253,6 +277,9 @@ export interface Form144Response {
   isUnder10b5Plan: boolean;
   filedAt: string;
   noticeDate: string | null;
+  filerCik: string | null;
+  securitiesClassTitle: string | null;
+  documentUrl: string;
 }
 
 export interface Form4HealthCheck {
@@ -459,6 +486,21 @@ export interface ReturnsCoverage {
   coveragePct: number;
 }
 
+export interface Schedule13DGResponse {
+  accessionNumber: string;
+  ticker: string;
+  companyName: string;
+  formType: string;
+  isAmendment: boolean;
+  filerName: string;
+  filerCik: string | null;
+  ownershipPercent: number | null;
+  sharesOwned: number | null;
+  reportingPersonType: string | null;
+  eventDate: string | null;
+  filedAt: string;
+}
+
 export interface ScorecardTradeRef {
   ticker: string;
   filedAt: string;
@@ -561,6 +603,8 @@ export interface TransactionResponse {
   return3m: number | null;
   return6m: number | null;
   valueQuality: string | null;
+  acceptedAt: string | null;
+  documentUrl: string;
   institutionalOwnership?: InstitutionalOwnershipDto;
 }
 
@@ -597,8 +641,10 @@ export interface ListForm144Params {
   exclude_10b5?: boolean;
   /** 1-based page number. Defaults to 1. */
   page?: number;
-  /** Filings per page. Defaults to 50, maximum 100. */
+  /** Filings per page. Defaults to 50, maximum 100. `limit` is accepted as an alias; if both are given, per_page wins. */
   per_page?: number;
+  /** Alias for per_page. */
+  limit?: number;
 }
 
 export interface ListHoldingsParams {
@@ -614,8 +660,10 @@ export interface ListHoldingsParams {
   min_value?: number;
   /** 1-based page number. Defaults to 1. */
   page?: number;
-  /** Positions per page. Defaults to 50, maximum 100. */
+  /** Positions per page. Defaults to 50, maximum 100. `limit` is accepted as an alias; if both are given, per_page wins. */
   per_page?: number;
+  /** Alias for per_page. */
+  limit?: number;
 }
 
 export interface ListManagersParams {
@@ -625,8 +673,10 @@ export interface ListManagersParams {
   min_aum?: number;
   /** 1-based page number. Defaults to 1. */
   page?: number;
-  /** Managers per page. Defaults to 50, maximum 100. */
+  /** Managers per page. Defaults to 50, maximum 100. `limit` is accepted as an alias; if both are given, per_page wins. */
   per_page?: number;
+  /** Alias for per_page. */
+  limit?: number;
 }
 
 export interface ListInsidersParams {
@@ -634,8 +684,10 @@ export interface ListInsidersParams {
   name?: string;
   /** 1-based page number. Defaults to 1. */
   page?: number;
-  /** Number of insiders per page. Defaults to 20, maximum 500. */
+  /** Number of insiders per page. Defaults to 20, maximum 500. `limit` is accepted as an alias; if both are given, per_page wins. */
   per_page?: number;
+  /** Alias for per_page. */
+  limit?: number;
 }
 
 export interface GetInsiderDirectoryParams {
@@ -643,8 +695,10 @@ export interface GetInsiderDirectoryParams {
   letter?: string;
   /** 1-based page number within the letter. Defaults to 1. */
   page?: number;
-  /** Rows per page. Defaults to 200, maximum 500. */
+  /** Rows per page. Defaults to 200, maximum 500. `limit` is accepted as an alias; if both are given, per_page wins. */
   per_page?: number;
+  /** Alias for per_page. */
+  limit?: number;
 }
 
 export interface GetInsiderLeaderboardParams {
@@ -708,8 +762,10 @@ export interface GetConvergenceSignalsParams {
   lookback_days?: number;
   /** 1-based page number. Defaults to 1. */
   page?: number;
-  /** Converged tickers per page. Defaults to 100, maximum 500. */
+  /** Converged tickers per page. Defaults to 100, maximum 500. `limit` is accepted as an alias; if both are given, per_page wins. */
   per_page?: number;
+  /** Alias for per_page. */
+  limit?: number;
 }
 
 export interface ListCongressTradesParams {
@@ -737,15 +793,19 @@ export interface ListCongressTradesParams {
   disclosure_date_to?: string;
   /** 1-based page number. Defaults to 1. */
   page?: number;
-  /** Trades per page. Defaults to 100, maximum 500. */
+  /** Trades per page. Defaults to 100, maximum 500. `limit` is accepted as an alias; if both are given, per_page wins. */
   per_page?: number;
+  /** Alias for per_page. */
+  limit?: number;
 }
 
 export interface ListCongressPoliticiansParams {
   /** 1-based page number. Defaults to 1. */
   page?: number;
-  /** Politicians per page. Defaults to 100, maximum 500. */
+  /** Politicians per page. Defaults to 100, maximum 500. `limit` is accepted as an alias; if both are given, per_page wins. */
   per_page?: number;
+  /** Alias for per_page. */
+  limit?: number;
 }
 
 export interface GetCongressPoliticianParams {
@@ -785,7 +845,7 @@ export class GeneratedCongressResource {
 
   /**
    * Ranked rollup of politicians by congressional trade activity (Pro plan+)
-   * Returns a paginated list of politicians who have at least one non-superseded congressional trade, each with total/buy/sell counts (sells include both Sale and PartialSale; Exchange trades count only toward total) and their most recent trade's disclosure date. Ordered by total trade count descending, ties broken by most recently disclosed. Use this to discover active traders; for one politician's full profile (including their most-traded tickers and recent trades) use GET /v1/congress/politicians/{idOrSlug}. Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). Query runs live — no caching.
+   * Returns a paginated list of politicians who have at least one non-superseded congressional trade, each with total/buy/sell counts (sells include both Sale and PartialSale; Exchange trades count only toward total) and their most recent trade's disclosure date. Ordered by total trade count descending, ties broken by most recently disclosed. Use this to discover active traders; for one politician's full profile (including their most-traded tickers and recent trades) use GET /v1/congress/politicians/{idOrSlug}. Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). `limit` is accepted as an alias for `per_page`. Query runs live — no caching.
    */
   async politicians(params?: ListCongressPoliticiansParams): Promise<CongressPoliticianRollupDto[]> {
     return this.client._get<CongressPoliticianRollupDto[]>(`/v1/congress/politicians`, toQuery(params));
@@ -801,7 +861,7 @@ export class GeneratedCongressResource {
 
   /**
    * Query congressional STOCK Act trades (Free+, plan-clamped disclosure window)
-   * Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). COVERAGE — HOUSE ONLY TODAY: every trade in this dataset comes from the U.S. House Clerk's PTR index. Senate eFD (efdsearch.senate.gov) returns 403 to datacenter traffic, so no Senate filings are ingested yet. chamber=Senate remains a valid filter but matches nothing and returns the response header X-Coverage-Note: chamber-not-covered, so an empty result is never ambiguous. Scanning by chamber should treat that header as "not covered", not as "no trades". PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate — see the coverage note above), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) — the STOCK Act allows up to 45 days of lag, so "real-time" here means minutes-after-disclosure, not minutes-after-trade. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). Query runs live against the database — no caching.
+   * Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). COVERAGE — HOUSE ONLY TODAY: every trade in this dataset comes from the U.S. House Clerk's PTR index. Senate eFD (efdsearch.senate.gov) returns 403 to datacenter traffic, so no Senate filings are ingested yet. chamber=Senate remains a valid filter but matches nothing and returns the response header X-Coverage-Note: chamber-not-covered, so an empty result is never ambiguous. Scanning by chamber should treat that header as "not covered", not as "no trades". PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate — see the coverage note above), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) — the STOCK Act allows up to 45 days of lag, so "real-time" here means minutes-after-disclosure, not minutes-after-trade. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). To check whether an insider cluster-buy lines up with a congressional purchase in the same ticker, use GET /v1/signals/convergence (Pro+); for the company's own profile use GET /v1/companies/{ticker} (Free). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
    */
   async trades(params?: ListCongressTradesParams): Promise<CongressTradeDto[]> {
     return this.client._get<CongressTradeDto[]>(`/v1/congress/trades`, toQuery(params));
@@ -825,7 +885,7 @@ export class GeneratedFilingsResource {
 
   /**
    * Get a single Form 4 filing by its exact SEC accession number
-   * Returns one filing's metadata — accession number, company ticker/name, period of report, filed date, amendment type (Original/Amendment), and the count of non-superseded transactions it contains. Use this to look up a specific filing you already have the accession number for (e.g. from GET /v1/filings/recent or GET /v1/transactions); it does not return the individual transaction rows themselves — pull those via GET /v1/transactions filtered by ticker/cik and date. Returns 404 NOT_FOUND if the accession number isn't tracked. Not plan-gated. Query runs live against the database — no caching.
+   * Returns one filing's metadata — accession number, company ticker/name, period of report, filed date, acceptedAt (precise UTC SEC-acceptance instant, nullable), documentUrl, amendment type (Original/Amendment), and the count of non-superseded transactions it contains. Use this to look up a specific filing you already have the accession number for (e.g. from GET /v1/filings/recent or GET /v1/transactions); it does not return the individual transaction rows themselves — pull those via GET /v1/transactions filtered by ticker/cik and date. Returns 404 NOT_FOUND if the accession number isn't tracked. Not plan-gated. Query runs live against the database — no caching.
    */
   async get(accession: string): Promise<FilingResponse> {
     return this.client._get<FilingResponse>(`/v1/filings/${encodeURIComponent(accession)}`);
@@ -833,7 +893,7 @@ export class GeneratedFilingsResource {
 
   /**
    * List Form 4 filings with optional ticker, CIK and date filters
-   * Returns a paginated list of Form 4 filings, newest filed first. Filter by ticker, cik, and a from/to filed-date window. Each entry carries the accession number, company ticker/name, period of report, filed date, amendment type (Original/Amendment), and the count of non-superseded transactions in that filing. Use this for a company's filing HISTORY; use GET /v1/filings/recent for a live newest-first feed (it has no page parameter), and GET /v1/transactions when you want the individual trades rather than the filings that contain them. `limit` is accepted as an alias for `per_page`. Not plan-gated.
+   * Returns a paginated list of Form 4 filings, newest filed first. Filter by ticker, cik, and a from/to filed-date window. Each entry carries the accession number, company ticker/name, period of report, filed date, acceptedAt (the precise UTC SEC-acceptance instant, null if not captured), documentUrl (the public SEC document URL), amendment type (Original/Amendment), and the count of non-superseded transactions in that filing. Use this for a company's filing HISTORY; use GET /v1/filings/recent for a live newest-first feed (it has no page parameter), and GET /v1/transactions when you want the individual trades rather than the filings that contain them. `limit` is accepted as an alias for `per_page`. Not plan-gated.
    */
   async list(params?: ListFilingsParams): Promise<FilingResponse[]> {
     return this.client._get<FilingResponse[]>(`/v1/filings`, toQuery(params));
@@ -841,7 +901,7 @@ export class GeneratedFilingsResource {
 
   /**
    * Get the most recently filed Form 4s, optionally filtered by ticker
-   * Returns the most recently filed Form 4s across all companies, newest first, optionally restricted to a single ticker. Use this to monitor new insider activity as it's ingested (e.g. a live "latest filings" feed) rather than for historical or bulk queries — for date-range or filter-heavy queries use GET /v1/transactions with from/to instead. Each entry includes the accession number, company ticker/name, period of report, filed date, amendment type, and the count of non-superseded transactions in that filing. There is no page parameter — this always returns the newest per_page filings, not an arbitrary offset. Not plan-gated.
+   * Returns the most recently filed Form 4s across all companies, newest first, optionally restricted to a single ticker. Use this to monitor new insider activity as it's ingested (e.g. a live "latest filings" feed) rather than for historical or bulk queries — for date-range or filter-heavy queries use GET /v1/transactions with from/to instead. Each entry includes the accession number, company ticker/name, period of report, filed date, acceptedAt (precise UTC SEC-acceptance instant, nullable), documentUrl, amendment type, and the count of non-superseded transactions in that filing. There is no page parameter — this always returns the newest per_page filings, not an arbitrary offset. Not plan-gated.
    */
   async recent(params?: GetRecentFilingsParams): Promise<FilingResponse[]> {
     return this.client._get<FilingResponse[]>(`/v1/filings/recent`, toQuery(params));
@@ -853,7 +913,7 @@ export class GeneratedForm144Resource {
 
   /**
    * List Form 144 'notice of proposed sale' filings (Business plan+)
-   * Returns a paginated list of Form 144 notices — an insider's SEC filing declaring intent to sell restricted/control stock, filed BEFORE the actual sale (which later shows up as a Form 4 TransactionCode=S, typically ~2 days after). Use this as a leading indicator of upcoming insider selling; the isUnder10b5Plan flag on each row separates pre-scheduled 10b5-1 disposals from discretionary intent. Each row includes accession number, ticker/company, insider name/relationship, broker, shares proposed, aggregate market value, approximate sale date, exchange, and filed/notice dates. For a bulk historical pull use GET /v1/form144/export instead. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Query runs live against the database — no caching.
+   * Returns a paginated list of Form 144 notices — an insider's SEC filing declaring intent to sell restricted/control stock, filed BEFORE the actual sale (which later shows up as a Form 4 TransactionCode=S, typically ~2 days after). Use this as a leading indicator of upcoming insider selling; the isUnder10b5Plan flag on each row separates pre-scheduled 10b5-1 disposals from discretionary intent. Each row includes accession number, ticker/company, insider name/relationship, broker, shares proposed, aggregate market value, approximate sale date, exchange, filed/notice dates, filerCik (from filerCredentials/cik — may be the insider or a filing agent), securitiesClassTitle, and documentUrl (the public SEC document URL). For a bulk historical pull use GET /v1/form144/export instead. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
    */
   async list(params?: ListForm144Params): Promise<Form144Response[]> {
     return this.client._get<Form144Response[]>(`/v1/form144`, toQuery(params));
@@ -865,7 +925,7 @@ export class GeneratedHoldingsResource {
 
   /**
    * List institutional holdings from Form 13F-HR (Business plan+)
-   * Returns a paginated list of individual position rows from Form 13F-HR institutional holdings reports (quarterly disclosures by managers with $100M+ AUM), most recent report period and highest value first. Each row includes the manager name/CIK, report period, issuer name/ticker, CUSIP, security class, position value and share count, share/voting authority type, and the source filing's accession number and filed date. A single security can appear multiple times per manager when sub-managers each report it separately (e.g. Berkshire's subsidiaries). Use GET /v1/managers instead when you want one row per manager (their latest filing + total AUM) rather than position-level detail. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Query runs live against the database — no caching; 13F data itself is inherently quarter-lagged (SEC filing deadline is 45 days after quarter end).
+   * Returns a paginated list of individual position rows from Form 13F-HR institutional holdings reports (quarterly disclosures by managers with $100M+ AUM), most recent report period and highest value first. Each row includes the manager name/CIK, report period, issuer name/ticker, CUSIP, security class, position value and share count, share/voting authority type, and the source filing's accession number and filed date. A single security can appear multiple times per manager when sub-managers each report it separately (e.g. Berkshire's subsidiaries). Use GET /v1/managers instead when you want one row per manager (their latest filing + total AUM) rather than position-level detail. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data itself is inherently quarter-lagged (SEC filing deadline is 45 days after quarter end).
    */
   async list(params?: ListHoldingsParams): Promise<HoldingResponse[]> {
     return this.client._get<HoldingResponse[]>(`/v1/holdings`, toQuery(params));
@@ -873,7 +933,7 @@ export class GeneratedHoldingsResource {
 
   /**
    * List institutional managers with their latest 13F-HR (Business plan+)
-   * Returns one row per institutional manager (13F filer), summarising their MOST RECENT 13F-HR filing — manager name/CIK, report period, total reported position value (AUM) and entry count, filed date, and accession number — ranked by AUM descending. Use this for manager-level discovery ("who are the biggest 13F filers?", "rank Apple's institutional holders") before drilling into position detail via GET /v1/holdings?manager_cik=. Amended (IsAmendment=true) filings are excluded from the 'latest' pick. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Query runs live against the database — no caching; 13F data is inherently quarter-lagged (SEC deadline is 45 days after quarter end).
+   * Returns one row per institutional manager (13F filer), summarising their MOST RECENT 13F-HR filing — manager name/CIK, report period, total reported position value (AUM) and entry count, filed date, and accession number — ranked by AUM descending. Use this for manager-level discovery ("who are the biggest 13F filers?", "rank Apple's institutional holders") before drilling into position detail via GET /v1/holdings?manager_cik=. Amended (IsAmendment=true) filings are excluded from the 'latest' pick. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data is inherently quarter-lagged (SEC deadline is 45 days after quarter end).
    */
   async managers(params?: ListManagersParams): Promise<ManagerResponse[]> {
     return this.client._get<ManagerResponse[]>(`/v1/managers`, toQuery(params));
@@ -894,7 +954,8 @@ is order by surname. Casing in the source is inconsistent and is not normalised 
 This lists only insiders with at least 3 non-superseded transactions, capped at the
 5,000 most active — the same set as the insiders sitemap shard, so the two cannot
 drift. To find someone outside that set, use GET /v1/insiders?name= which searches
-every filer. Rebuilt daily; `refreshedAt` reports when. Not plan-gated.
+every filer. Rebuilt daily; `refreshedAt` reports when. `limit` is accepted as an alias for
+`per_page`. Not plan-gated.
 
 One row per FILER GROUP. A fund group files a single Form 4 listing several
 reporting owners — the fund, its GP, its management company — and each is a real
@@ -926,7 +987,7 @@ parameter combination.
 
   /**
    * Search insiders (officers, directors, 10% owners) by name
-   * Searches insiders by name and returns a paginated list of matches with each insider's CIK, title, director/officer/10%-owner flags, and total filing count. Use this to resolve a person's name to their CIK before fetching their transaction history, career summary, or scorecard — the CIK returned here feeds directly into GET /v1/insiders/{cik}/transactions, /summary, and /scorecard. Omitting the name filter returns insiders in alphabetical order rather than performing a search. Not plan-gated — available on the Free tier.
+   * Searches insiders by name and returns a paginated list of matches with each insider's CIK, title, director/officer/10%-owner flags, and total filing count. Use this to resolve a person's name to their CIK before fetching their transaction history, career summary, or scorecard — the CIK returned here feeds directly into GET /v1/insiders/{cik}/transactions, /summary, and /scorecard. Omitting the name filter returns insiders in alphabetical order rather than performing a search. `limit` is accepted as an alias for `per_page`. Not plan-gated — available on the Free tier.
    */
   async list(params?: ListInsidersParams): Promise<InsiderResponse[]> {
     return this.client._get<InsiderResponse[]>(`/v1/insiders`, toQuery(params));
@@ -973,7 +1034,7 @@ export class GeneratedSignalsResource {
 
   /**
    * Insider cluster-buy x congressional-purchase convergence (Pro plan+)
-   * Returns the tickers where an insider cluster-buy (InsiderSignal.IsClusterBuy) and at least one non-superseded congressional PURCHASE happened within window_days of EACH OTHER, restricted to convergences where the MORE RECENT of the pair's two dates is within a trailing lookback_days (so this surfaces CURRENT convergences, not ancient history). DEFINITION: for each result, insider.signalDate is the SignalDate of the qualifying cluster-buy signal with the most recent date (insider.insiderCount is that same signal's count — never summed or maxed across multiple signals), and congress is every non-superseded congressional purchase that paired with at least one qualifying cluster-buy (not every purchase in the window — only the ones that actually paired). firstSeen/lastSeen are the earliest/most recent dates among all qualifying insider and congress dates for that ticker. STRENGTH is documented arithmetic, NOT a black-box or predictive/ML score: strength = (distinct congressional purchasers among the qualifying legs) x (the representative signal's insiderCount) — a plain multiplication of two observed counts, nothing more. HONESTY: every congress leg always carries both amountLow and amountHigh (STOCK Act discloses ranges, never exact figures — never combined into a fabricated midpoint) and disclosureLagDays = (disclosureDate - transactionDate); congressional trades are disclosed up to 45 days after the actual trade under the STOCK Act, so this endpoint is detection/monitoring of what insiders AND members of Congress have DISCLOSED buying, not a claim of predictive edge, alpha, or win rate — no performance numbers are computed or implied anywhere in this response. window_days and lookback_days are both caller-overridable with clamps (see each parameter's own description for the exact bounds). Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). Query runs live against the database — no caching.
+   * Returns the tickers where an insider cluster-buy (InsiderSignal.IsClusterBuy) and at least one non-superseded congressional PURCHASE happened within window_days of EACH OTHER, restricted to convergences where the MORE RECENT of the pair's two dates is within a trailing lookback_days (so this surfaces CURRENT convergences, not ancient history). DEFINITION: for each result, insider.signalDate is the SignalDate of the qualifying cluster-buy signal with the most recent date (insider.insiderCount is that same signal's count — never summed or maxed across multiple signals), and congress is every non-superseded congressional purchase that paired with at least one qualifying cluster-buy (not every purchase in the window — only the ones that actually paired). firstSeen/lastSeen are the earliest/most recent dates among all qualifying insider and congress dates for that ticker. STRENGTH is documented arithmetic, NOT a black-box or predictive/ML score: strength = (distinct congressional purchasers among the qualifying legs) x (the representative signal's insiderCount) — a plain multiplication of two observed counts, nothing more. HONESTY: every congress leg always carries both amountLow and amountHigh (STOCK Act discloses ranges, never exact figures — never combined into a fabricated midpoint) and disclosureLagDays = (disclosureDate - transactionDate); congressional trades are disclosed up to 45 days after the actual trade under the STOCK Act, so this endpoint is detection/monitoring of what insiders AND members of Congress have DISCLOSED buying, not a claim of predictive edge, alpha, or win rate — no performance numbers are computed or implied anywhere in this response. window_days and lookback_days are both caller-overridable with clamps (see each parameter's own description for the exact bounds). Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
    */
   async convergence(params?: GetConvergenceSignalsParams): Promise<ConvergenceEntryDto[]> {
     return this.client._get<ConvergenceEntryDto[]>(`/v1/signals/convergence`, toQuery(params));
