@@ -505,7 +505,7 @@ var WebhooksResource = class {
 };
 
 // src/version.ts
-var SDK_VERSION = "1.5.0";
+var SDK_VERSION = "1.6.0";
 
 // src/client.ts
 var DEFAULT_BASE_URL = "https://api.form4api.com";
