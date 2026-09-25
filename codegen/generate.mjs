@@ -52,6 +52,7 @@ const HANDLED_BY_HANDWRITTEN = new Set([
   'GetCompany',             // → companies.get()
   'GetCompanyInsiders',     // → companies.insiders()
   'GetSignals',             // → signals.list()
+  'Search',                 // → client.search()
 ])
 
 // OpenAPI tag → the resource class it belongs to. Explicit rather than derived:

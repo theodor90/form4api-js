@@ -17,6 +17,8 @@ import {
   GeneratedStatsResource,
   GeneratedStatusResource,
 } from "./generated.js";
+import type { SearchResponse } from "./generated.js";
+import type { SearchParams } from "./types.js";
 import { SDK_VERSION } from "./version.js";
 
 const DEFAULT_BASE_URL = "https://api.form4api.com";
@@ -85,6 +87,27 @@ export class Form4ApiClient {
     this.stats = new GeneratedStatsResource(this);
     this.status = new GeneratedStatusResource(this);
     this.dataQuality = new GeneratedDataQualityResource(this);
+  }
+
+  /**
+   * Combined name search across companies (matched by ticker or name) and
+   * insiders (matched by name), for resolving free-text input to a ticker or
+   * CIK. A method on the client rather than a resource, matching the Python
+   * SDK's `client.search(q, limit=...)`.
+   *
+   * `q` must be 2-64 characters after trimming, or the API rejects the call
+   * with a 400 (`QUERY_TOO_SHORT` / `QUERY_TOO_LONG` on
+   * `InsiderApiError.errorCode`). Insiders are matched by splitting `q` on
+   * whitespace and requiring every token to match the name, so `"tim cook"`
+   * matches the SEC-style `"Cook Timothy D"`. `limit` applies independently
+   * to each of the two result lists (default 8, max 20). Each insider's
+   * `ticker` is a ticker associated with that insider and may be null.
+   * Free tier.
+   */
+  async search(q: string, params: SearchParams = {}): Promise<SearchResponse> {
+    const query: Record<string, string> = { q };
+    if (params.limit !== undefined) query["limit"] = String(params.limit);
+    return this._get<SearchResponse>("/v1/search", query);
   }
 
   // ── internal request helpers ───────────────────────────────────────────────

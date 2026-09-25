@@ -154,6 +154,11 @@ export interface WebhookEventParams {
   since?: string;
 }
 
+export interface SearchParams {
+  /** Maximum number of results per section (companies, insiders), applied independently to each. Defaults to 8, clamped to 1-20. */
+  limit?: number;
+}
+
 // ── pagination ────────────────────────────────────────────────────────────────
 
 export interface PaginateOptions {

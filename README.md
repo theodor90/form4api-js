@@ -157,6 +157,25 @@ const events = await client.webhooks.events({ since?: string });
 
 **Event types:** `"TransactionFiled"`, `"ClusterBuy"`, `"ClusterSell"`
 
+### `client.search()`
+
+```typescript
+const results = await client.search(q: string, { limit?: number });
+// results.companies: { ticker, name, cik }[]
+// results.insiders:  { cik, name, title: string | null, ticker: string | null }[]
+```
+
+Combined name search across companies (matched by ticker or name) and
+insiders (matched by name) — for resolving free-text input to a specific
+ticker or CIK, e.g. a site search box. `q` must be 2-64 characters after
+trimming, or the call throws `InsiderApiError` with `errorCode`
+`"QUERY_TOO_SHORT"` or `"QUERY_TOO_LONG"`. Insiders are matched by splitting
+`q` on whitespace and requiring every token to match the name, so
+`"tim cook"` matches the SEC-style `"Cook Timothy D"`. `limit` applies
+independently to each of the two result lists (default 8, max 20). Each
+insider's `ticker` is a ticker associated with that insider and may be
+`null`. Free tier, not plan-gated.
+
 ## Full resource surface
 
 Every plan-gated endpoint the API exposes has a typed method here. Resources
@@ -176,6 +195,7 @@ generated from the OpenAPI spec sit alongside the hand-written ones above:
 | `client.dataQuality` | `.get()` — public, no key required |
 | `client.status` | `.history()` |
 | `client.webhooks` | `.create()`, `.list()`, `.delete(id)`, `.events()` |
+| `client.search(q, { limit? })` | Name search for companies and insiders. Free tier |
 
 Post-trade returns (1d/1w/1m/3m/6m) come back on transaction rows, and the
 `minReturn*` screening filters are parameters on `client.transactions.list()`

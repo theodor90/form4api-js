@@ -86,6 +86,11 @@ const WEBHOOK_SUB = {
   isActive: true,
 };
 
+const SEARCH_RESULT = {
+  companies: [{ ticker: "AAPL", name: "Apple Inc.", cik: "0000320193" }],
+  insiders: [{ cik: "0001234567", name: "Cook Timothy D", title: "Chief Executive Officer", ticker: "AAPL" }],
+};
+
 const WEBHOOK_EVENT = {
   deliveryId: 1,
   subscriptionId: 1,
@@ -536,6 +541,79 @@ describe("webhooks", () => {
   });
 });
 
+// ── search ────────────────────────────────────────────────────────────────────
+
+describe("search", () => {
+  it("returns typed companies and insiders", async () => {
+    server.use(
+      http.get(`${BASE}/v1/search`, () => HttpResponse.json(SEARCH_RESULT)),
+    );
+    const result = await makeClient().search("tim cook");
+    expect(result.companies).toHaveLength(1);
+    expect(result.companies[0].ticker).toBe("AAPL");
+    expect(result.companies[0].cik).toBe("0000320193");
+    expect(result.insiders).toHaveLength(1);
+    expect(result.insiders[0].name).toBe("Cook Timothy D");
+    expect(result.insiders[0].title).toBe("Chief Executive Officer");
+    expect(result.insiders[0].ticker).toBe("AAPL");
+  });
+
+  it("sends q as a query param", async () => {
+    let url: URL | null = null;
+    server.use(
+      http.get(`${BASE}/v1/search`, ({ request }) => {
+        url = new URL(request.url);
+        return HttpResponse.json({ companies: [], insiders: [] });
+      }),
+    );
+    await makeClient().search("tim cook");
+    expect(url!.searchParams.get("q")).toBe("tim cook");
+    expect(url!.searchParams.has("limit")).toBe(false);
+  });
+
+  it("forwards the limit param when given", async () => {
+    let url: URL | null = null;
+    server.use(
+      http.get(`${BASE}/v1/search`, ({ request }) => {
+        url = new URL(request.url);
+        return HttpResponse.json({ companies: [], insiders: [] });
+      }),
+    );
+    await makeClient().search("aapl", { limit: 3 });
+    expect(url!.searchParams.get("q")).toBe("aapl");
+    expect(url!.searchParams.get("limit")).toBe("3");
+  });
+
+  it("returns insiders with a null title and null ticker", async () => {
+    server.use(
+      http.get(`${BASE}/v1/search`, () =>
+        HttpResponse.json({
+          companies: [],
+          insiders: [{ cik: "0009999999", name: "Jane Doe", title: null, ticker: null }],
+        }),
+      ),
+    );
+    const result = await makeClient().search("jane doe");
+    expect(result.insiders[0].title).toBeNull();
+    expect(result.insiders[0].ticker).toBeNull();
+  });
+
+  it("a too-short query surfaces the API's 400 with its error code", async () => {
+    server.use(
+      http.get(`${BASE}/v1/search`, () =>
+        HttpResponse.json(
+          { error: { code: "QUERY_TOO_SHORT", message: "`q` is required and must be at least 2 characters." } },
+          { status: 400 },
+        ),
+      ),
+    );
+    const thrown = await makeClient().search("x").catch((e: unknown) => e);
+    expect(thrown).toBeInstanceOf(InsiderApiError);
+    expect((thrown as InsiderApiError).statusCode).toBe(400);
+    expect((thrown as InsiderApiError).errorCode).toBe("QUERY_TOO_SHORT");
+  });
+});
+
 // ── error handling ─────────────────────────────────────────────────────────────
 
 describe("error handling", () => {
@@ -599,6 +677,41 @@ describe("error handling", () => {
     expect(err).toBeInstanceOf(PlanError);
     expect(err.requiredPlan).toBeUndefined();
     expect(err.message).toBe("Business plan required");
+  });
+
+  it("400 (QUERY_TOO_SHORT) throws InsiderApiError carrying the error code", async () => {
+    server.use(
+      http.get(`${BASE}/v1/search`, () =>
+        HttpResponse.json(
+          { error: { code: "QUERY_TOO_SHORT", message: "q must be at least 2 characters" } },
+          { status: 400 },
+        ),
+      ),
+    );
+    const err = await makeClient()
+      .search("a")
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(InsiderApiError);
+    expect(err.statusCode).toBe(400);
+    expect(err.errorCode).toBe("QUERY_TOO_SHORT");
+    expect(err.message).toBe("q must be at least 2 characters");
+  });
+
+  it("400 (QUERY_TOO_LONG) throws InsiderApiError carrying the error code", async () => {
+    server.use(
+      http.get(`${BASE}/v1/search`, () =>
+        HttpResponse.json(
+          { error: { code: "QUERY_TOO_LONG", message: "q must be at most 64 characters" } },
+          { status: 400 },
+        ),
+      ),
+    );
+    const err = await makeClient()
+      .search("a".repeat(65))
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(InsiderApiError);
+    expect(err.statusCode).toBe(400);
+    expect(err.errorCode).toBe("QUERY_TOO_LONG");
   });
 
   it("404 throws NotFoundError", async () => {
