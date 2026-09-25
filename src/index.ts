@@ -21,6 +21,7 @@ export type {
   InsiderSignal,
   InsiderTransactionParams,
   PaginateOptions,
+  SearchParams,
   SignalListParams,
   Transaction,
   TransactionListParams,

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- New `client.search(q, { limit? })`: combined name search across
+  companies (matched by ticker or name) and insiders (matched by name), for
+  resolving free-text input to a specific ticker or CIK, e.g. a site search
+  box. `q` must be 2-64 characters after trimming (the API returns 400
+  `QUERY_TOO_SHORT` / `QUERY_TOO_LONG` otherwise); `limit` applies
+  independently to each of the two result lists (default 8, max 20). Free
+  tier, not plan-gated. Response types `SearchResponse` /
+  `SearchCompanyResult` / `SearchInsiderResult` are spec-derived
+  (`src/generated.ts`); the method itself is hand-written, and sits on the
+  client rather than a resource, to match the Python SDK's
+  `client.search(q, limit=...)`.
+
 ## 1.6.0 — 2026-09-24
 
 - Regenerated `src/generated.ts` from the current OpenAPI spec (backend

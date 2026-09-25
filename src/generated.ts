@@ -507,6 +507,24 @@ export interface ScorecardTradeRef {
   return3m: number | null;
 }
 
+export interface SearchCompanyResult {
+  ticker: string;
+  name: string;
+  cik: string;
+}
+
+export interface SearchInsiderResult {
+  cik: string;
+  name: string;
+  title: string | null;
+  ticker: string | null;
+}
+
+export interface SearchResponse {
+  companies: SearchCompanyResult[];
+  insiders: SearchInsiderResult[];
+}
+
 export interface SentimentMonthEntry {
   period: string;
   score: number;
