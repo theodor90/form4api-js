@@ -1,5 +1,18 @@
 # Changelog
 
+## Before publishing
+
+Run `npm run release:check` with `FORM4API_TEST_KEY` set to a real API key, and
+it must pass before `npm publish`. It builds and packs the package, lints the
+tarball (publint, attw), installs it into a fresh project, smoke-tests it as an
+ESM, CJS and TypeScript consumer (node16 and bundler resolution), validates
+live API responses against the live OpenAPI spec through the installed
+package, and finishes with `npm publish --dry-run`. Flags: `--offline` skips the
+live stage (CI uses it), `--keep` keeps the temp directories. Without the key
+and without `--offline` it fails. The call list is `contract/live-calls.json`.
+Bump the version in `package.json` and this file first; the dry-run fails
+if the version is already on npm.
+
 ## Unreleased
 
 ## 1.7.0 — 2026-10-05

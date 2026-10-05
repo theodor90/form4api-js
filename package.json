@@ -61,10 +61,15 @@
     "codegen": "node codegen/generate.mjs",
     "codegen:check": "node codegen/check.mjs",
     "codegen:version": "node codegen/version.mjs",
+    "release:check": "node scripts/release-check.mjs",
     "prebuild": "node codegen/version.mjs"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "msw": "^2.7.0",
+    "publint": "^0.3.25",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"
