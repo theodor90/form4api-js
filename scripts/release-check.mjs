@@ -231,7 +231,14 @@ function stageLiveContract() {
 
 function stageDryRunPublish() {
   const r = npm(["publish", "--dry-run"]);
-  const warns = r.out.split(/\r?\n/).filter((l) => /^npm (warn|WARN)\b/.test(l.trim()));
+  // Packaging warnings (e.g. npm rewriting a bin path) are the point of this stage, so
+  // scan them FIRST, before the already-published early return, or CI on an
+  // unbumped PR would never see them. The one ignored line is environmental: CI
+  // runners are not logged in to npm.
+  const warns = r.out
+    .split(/\r?\n/)
+    .filter((l) => /^npm (warn|WARN)\b/.test(l.trim()) && !/requires you to be logged in/i.test(l));
+  if (warns.length) fail(`npm publish --dry-run emitted ${warns.length} warning(s):\n${indent(warns.join("\n"))}`);
   if (/cannot publish over the previously published versions/i.test(r.out)) {
     if (OFFLINE) {
       // CI runs this on every PR, where the version is normally the one already on
@@ -240,14 +247,12 @@ function stageDryRunPublish() {
       return {
         notes: [
           `WARN form4api@${VERSION} is already on the npm registry (tolerated under --offline; the full local run and \`npm publish\` itself reject it). Bump the version before a real release.`,
-          "dry-run stopped at the registry check, so the npm-warning scan did not run",
         ],
       };
     }
     fail(`form4api@${VERSION} is already on the npm registry; bump the version (package.json, CHANGELOG.md, then \`npm run codegen:version\`) before publishing.\n${indent(r.out.split(/\r?\n/).filter((l) => /^npm error/.test(l)).join("\n"))}`);
   }
   if (r.status !== 0) fail(`npm publish --dry-run failed (exit ${r.status})\n${indent(r.out)}`);
-  if (warns.length) fail(`npm publish --dry-run emitted ${warns.length} warning(s):\n${indent(warns.join("\n"))}`);
   return { notes: ["npm publish --dry-run: no warnings"] };
 }
 
