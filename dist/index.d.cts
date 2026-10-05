@@ -140,6 +140,10 @@ interface SignalListParams {
 interface WebhookEventParams {
     since?: string;
 }
+interface SearchParams {
+    /** Maximum number of results per section (companies, insiders), applied independently to each. Defaults to 8, clamped to 1-20. */
+    limit?: number;
+}
 interface PaginateOptions {
     /**
      * Stop after yielding this many pages, even if more data is available.
@@ -159,7 +163,7 @@ interface ErrorDetail {
     message: string;
     /** Correlation id for this request. Quote it when contacting support. */
     requestId: string;
-    /** Where to upgrade. Present on 402 and on quota-exceeded 429s. Omitted when not applicable. */
+    /** Where to upgrade. May be present on 402 and on quota-exceeded 429s; omitted when no upgrade path is offered. Omitted when not applicable. */
     upgradeUrl?: string;
     /** Minimum plan for this endpoint. Present on 402. Omitted when not applicable. */
     requiredPlan?: string;
@@ -266,7 +270,8 @@ interface CongressTradeDto {
     amountHigh: number | null;
     transactionDate: string;
     disclosureDate: string;
-    disclosureLagDays: number;
+    disclosureLagDays: number | null;
+    dateQuality: string | null;
 }
 interface ConvergenceCongressLegDto {
     bioguideId: string | null;
@@ -277,7 +282,8 @@ interface ConvergenceCongressLegDto {
     amountHigh: number | null;
     transactionDate: string;
     disclosureDate: string;
-    disclosureLagDays: number;
+    disclosureLagDays: number | null;
+    dateQuality: string | null;
 }
 interface ConvergenceEntryDto {
     ticker: string;
@@ -321,7 +327,7 @@ interface CreateKeyRequest {
 interface CreateWebhookRequest {
     /** Destination URL for event deliveries. Must be HTTPS and resolve to a public (non-private, non-loopback) address — validated at creation and re-validated at delivery time. */
     url: string | null;
-    /** Event types to subscribe to (exact names the API returns as EventType values, not dotted names): "TransactionFiled" (Free — new Form 4 transaction), "ClusterBuy" (Free), "ClusterSell" (Free), "CongressTradeFiled" (Starter+ — STOCK Act trade ingested, payload includes disclosureLagDays, see the endpoint description), "ConvergenceSignal" (Pro+ — insider cluster-buy and a congressional purchase converged on the same ticker within the detector's window). At least one is required. Some event types require a minimum plan (independent of the subscription count cap, shown above per type); requesting one your plan doesn't meet rejects the whole request with 402 PLAN_REQUIRED. */
+    /** Event types to subscribe to (exact names the API returns as EventType values, not dotted names): "TransactionFiled" (Free — new Form 4 transaction), "ClusterBuy" (Free), "ClusterSell" (Free), "CongressTradeFiled" (Starter+ — STOCK Act trade ingested, payload includes disclosureLagDays (null when dateQuality is set), see the endpoint description), "ConvergenceSignal" (Pro+ — insider cluster-buy and a congressional purchase converged on the same ticker within the detector's window). At least one is required. Some event types require a minimum plan (independent of the subscription count cap, shown above per type); requesting one your plan doesn't meet rejects the whole request with 402 PLAN_REQUIRED. */
     eventTypes: string[] | null;
 }
 interface DataQualityResponse {
@@ -587,6 +593,21 @@ interface ScorecardTradeRef {
     ticker: string;
     filedAt: string;
     return3m: number | null;
+}
+interface SearchCompanyResult {
+    ticker: string;
+    name: string;
+    cik: string;
+}
+interface SearchInsiderResult {
+    cik: string;
+    name: string;
+    title: string | null;
+    ticker: string | null;
+}
+interface SearchResponse {
+    companies: SearchCompanyResult[];
+    insiders: SearchInsiderResult[];
 }
 interface SentimentMonthEntry {
     period: string;
@@ -903,7 +924,7 @@ declare class GeneratedCongressResource {
     ticker(ticker: string, params?: GetCongressTickerRollupParams): Promise<CongressTickerRollupResponse>;
     /**
      * Query congressional STOCK Act trades (Free+, plan-clamped disclosure window)
-     * Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). COVERAGE — HOUSE ONLY TODAY: every trade in this dataset comes from the U.S. House Clerk's PTR index. Senate eFD (efdsearch.senate.gov) returns 403 to datacenter traffic, so no Senate filings are ingested yet. chamber=Senate remains a valid filter but matches nothing and returns the response header X-Coverage-Note: chamber-not-covered, so an empty result is never ambiguous. Scanning by chamber should treat that header as "not covered", not as "no trades". PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate — see the coverage note above), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) — the STOCK Act allows up to 45 days of lag, so "real-time" here means minutes-after-disclosure, not minutes-after-trade. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). To check whether an insider cluster-buy lines up with a congressional purchase in the same ticker, use GET /v1/signals/convergence (Pro+); for the company's own profile use GET /v1/companies/{ticker} (Free). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
+     * Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). COVERAGE — HOUSE ONLY TODAY: every trade in this dataset comes from the U.S. House Clerk's PTR index. Senate eFD (efdsearch.senate.gov) returns 403 to datacenter traffic, so no Senate filings are ingested yet. chamber=Senate remains a valid filter but matches nothing and returns the response header X-Coverage-Note: chamber-not-covered, so an empty result is never ambiguous. Scanning by chamber should treat that header as "not covered", not as "no trades". PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate — see the coverage note above), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) in whole days — the STOCK Act allows up to 45 days of lag, so "real-time" here means minutes-after-disclosure, not minutes-after-trade. DATE QUALITY: source dates are sometimes wrong. When a row's dates are impossible or implausible, disclosureLagDays is null and dateQuality names the reason: transaction_after_disclosure (transaction date later than disclosure date), future_transaction_date (transaction date in the future), or implausible_lag (lag above 1500 days, almost always a mistyped year). dateQuality is null on a normal row. Flagged rows are never dropped and their raw transactionDate and disclosureDate are returned unchanged. Genuine late filings with a long but plausible lag keep their disclosureLagDays. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). To check whether an insider cluster-buy lines up with a congressional purchase in the same ticker, use GET /v1/signals/convergence (Pro+); for the company's own profile use GET /v1/companies/{ticker} (Free). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
      */
     trades(params?: ListCongressTradesParams): Promise<CongressTradeDto[]>;
 }
@@ -1037,7 +1058,7 @@ declare class GeneratedSignalsResource {
     constructor(client: Form4ApiClient);
     /**
      * Insider cluster-buy x congressional-purchase convergence (Pro plan+)
-     * Returns the tickers where an insider cluster-buy (InsiderSignal.IsClusterBuy) and at least one non-superseded congressional PURCHASE happened within window_days of EACH OTHER, restricted to convergences where the MORE RECENT of the pair's two dates is within a trailing lookback_days (so this surfaces CURRENT convergences, not ancient history). DEFINITION: for each result, insider.signalDate is the SignalDate of the qualifying cluster-buy signal with the most recent date (insider.insiderCount is that same signal's count — never summed or maxed across multiple signals), and congress is every non-superseded congressional purchase that paired with at least one qualifying cluster-buy (not every purchase in the window — only the ones that actually paired). firstSeen/lastSeen are the earliest/most recent dates among all qualifying insider and congress dates for that ticker. STRENGTH is documented arithmetic, NOT a black-box or predictive/ML score: strength = (distinct congressional purchasers among the qualifying legs) x (the representative signal's insiderCount) — a plain multiplication of two observed counts, nothing more. HONESTY: every congress leg always carries both amountLow and amountHigh (STOCK Act discloses ranges, never exact figures — never combined into a fabricated midpoint) and disclosureLagDays = (disclosureDate - transactionDate); congressional trades are disclosed up to 45 days after the actual trade under the STOCK Act, so this endpoint is detection/monitoring of what insiders AND members of Congress have DISCLOSED buying, not a claim of predictive edge, alpha, or win rate — no performance numbers are computed or implied anywhere in this response. window_days and lookback_days are both caller-overridable with clamps (see each parameter's own description for the exact bounds). Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
+     * Returns the tickers where an insider cluster-buy (InsiderSignal.IsClusterBuy) and at least one non-superseded congressional PURCHASE happened within window_days of EACH OTHER, restricted to convergences where the MORE RECENT of the pair's two dates is within a trailing lookback_days (so this surfaces CURRENT convergences, not ancient history). DEFINITION: for each result, insider.signalDate is the SignalDate of the qualifying cluster-buy signal with the most recent date (insider.insiderCount is that same signal's count — never summed or maxed across multiple signals), and congress is every non-superseded congressional purchase that paired with at least one qualifying cluster-buy (not every purchase in the window — only the ones that actually paired). firstSeen/lastSeen are the earliest/most recent dates among all qualifying insider and congress dates for that ticker. STRENGTH is documented arithmetic, NOT a black-box or predictive/ML score: strength = (distinct congressional purchasers among the qualifying legs) x (the representative signal's insiderCount) — a plain multiplication of two observed counts, nothing more. HONESTY: every congress leg always carries both amountLow and amountHigh (STOCK Act discloses ranges, never exact figures — never combined into a fabricated midpoint) and disclosureLagDays = (disclosureDate - transactionDate). Congressional trades whose dates are impossible or implausible (a dateQuality flag: transaction_after_disclosure, future_transaction_date or implausible_lag) are excluded from detection, so they never appear as legs and never create a convergence; dateQuality is therefore null on every leg returned here and disclosureLagDays is always set. Congressional trades are disclosed up to 45 days after the actual trade under the STOCK Act, so this endpoint is detection/monitoring of what insiders AND members of Congress have DISCLOSED buying, not a claim of predictive edge, alpha, or win rate — no performance numbers are computed or implied anywhere in this response. window_days and lookback_days are both caller-overridable with clamps (see each parameter's own description for the exact bounds). Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
      */
     convergence(params?: GetConvergenceSignalsParams): Promise<ConvergenceEntryDto[]>;
     /**
@@ -1149,6 +1170,22 @@ declare class Form4ApiClient {
     readonly status: GeneratedStatusResource;
     readonly dataQuality: GeneratedDataQualityResource;
     constructor({ apiKey, baseUrl, maxRetries, timeout, }: Form4ApiClientOptions);
+    /**
+     * Combined name search across companies (matched by ticker or name) and
+     * insiders (matched by name), for resolving free-text input to a ticker or
+     * CIK. A method on the client rather than a resource, matching the Python
+     * SDK's `client.search(q, limit=...)`.
+     *
+     * `q` must be 2-64 characters after trimming, or the API rejects the call
+     * with a 400 (`QUERY_TOO_SHORT` / `QUERY_TOO_LONG` on
+     * `InsiderApiError.errorCode`). Insiders are matched by splitting `q` on
+     * whitespace and requiring every token to match the name, so `"tim cook"`
+     * matches the SEC-style `"Cook Timothy D"`. `limit` applies independently
+     * to each of the two result lists (default 8, max 20). Each insider's
+     * `ticker` is a ticker associated with that insider and may be null.
+     * Free tier.
+     */
+    search(q: string, params?: SearchParams): Promise<SearchResponse>;
     _get<T>(path: string, params?: Record<string, string>): Promise<T>;
     _post<T>(path: string, body?: unknown): Promise<T>;
     _delete(path: string): Promise<void>;
@@ -1205,4 +1242,4 @@ declare class PaginationLimitError extends PlanError {
     constructor(message: string, pagesYielded: number, cause: unknown);
 }
 
-export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ErrorDetail, type ErrorResponse, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ManagerResponse, NotFoundError, type PaginateOptions, PaginationLimitError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type Schedule13DGResponse, type ScorecardTradeRef, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookCreated, type WebhookEvent, type WebhookEventParams, type WebhookSubscription };
+export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ErrorDetail, type ErrorResponse, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ManagerResponse, NotFoundError, type PaginateOptions, PaginationLimitError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type Schedule13DGResponse, type ScorecardTradeRef, type SearchCompanyResult, type SearchInsiderResult, type SearchParams, type SearchResponse, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookCreated, type WebhookEvent, type WebhookEventParams, type WebhookSubscription };
