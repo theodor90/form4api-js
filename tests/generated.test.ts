@@ -115,6 +115,37 @@ describe("generated resource families", () => {
     expect(ticker()!.pathname).toBe("/v1/congress/tickers/NVDA");
   });
 
+  it("congress trades pass through null disclosureLagDays and dateQuality", async () => {
+    const politician = { bioguideId: "X000001", slug: "x", fullName: "X", party: null, chamber: "House", state: "CA" };
+    const base = {
+      politician,
+      ticker: "NVDA",
+      assetName: "NVIDIA",
+      assetType: "Stock",
+      ownerType: "Self",
+      transactionType: "Purchase",
+      amountLow: 1001,
+      amountHigh: 15000,
+      disclosureDate: "2026-01-10",
+    };
+    captureGet("/v1/congress/trades", [
+      { ...base, transactionDate: "2026-01-01", disclosureLagDays: 9, dateQuality: null },
+      { ...base, transactionDate: "2026-02-01", disclosureLagDays: null, dateQuality: "transaction_after_disclosure" },
+    ]);
+    const rows = await makeClient().congress.trades();
+
+    // Type-level: both fields are nullable; this would not compile otherwise.
+    const lag: number | null = rows[1]!.disclosureLagDays;
+    const quality: string | null = rows[1]!.dateQuality;
+    expect(lag).toBeNull();
+    expect(quality).toBe("transaction_after_disclosure");
+    expect(rows[0]!.disclosureLagDays).toBe(9);
+    expect(rows[0]!.dateQuality).toBeNull();
+    // Raw dates are returned unchanged on a flagged row.
+    expect(rows[1]!.transactionDate).toBe("2026-02-01");
+    expect(rows[1]!.disclosureDate).toBe("2026-01-10");
+  });
+
   it("encodes path parameters rather than interpolating them raw", async () => {
     const seen = captureGet("/v1/congress/politicians/a%2Fb", {});
     await makeClient().congress.politician("a/b");

@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## 1.7.0 — 2026-10-05
+
+- **Congress date quality (backend insiderapi #330/#331).** Regenerated
+  `src/generated.ts` from the live spec. On `CongressTradeDto` and
+  `ConvergenceCongressLegDto`, `disclosureLagDays` narrows from `number` to
+  `number | null`, and a new `dateQuality: string | null` is added. The
+  source's own dates are sometimes impossible or implausible; when so,
+  `disclosureLagDays` is `null` and `dateQuality` names the reason:
+  `"transaction_after_disclosure"`, `"future_transaction_date"` or
+  `"implausible_lag"` (a free-form string in the spec, not an enum, so it is
+  typed `string` and new codes will not break a build). A null lag with a code
+  means the filing's own dates are impossible; the raw `transactionDate` and
+  `disclosureDate` are still returned and flagged rows are never dropped. On
+  convergence legs `dateQuality` is always `null` in practice (flagged trades
+  are excluded from convergence) but is modelled per the schema. A lag over 45
+  days is not a legal finding. This is a **minor**, not a patch, because
+  `disclosureLagDays` becoming nullable can break a build for code that does
+  arithmetic on it without a null check. Webhook payloads
+  (`CongressTradeFiled`, `ConvergenceSignal`) carry the same two fields in
+  PascalCase (`DisclosureLagDays`, `DateQuality`); this SDK has no webhook
+  payload types, so nothing to change there.
+- The endpoint JSDoc for `congress.trades()` and `signals.convergence()`
+  picks up the new descriptions, and the `webhooks.create()` `eventTypes`
+  doc now notes `disclosureLagDays` is null when `dateQuality` is set. The
+  `upgradeUrl` doc comment on the error body type is reworded (spec drift, no
+  type change).
+
+Also in this release (previously unreleased):
+
 - New `client.search(q, { limit? })`: combined name search across
   companies (matched by ticker or name) and insiders (matched by name), for
   resolving free-text input to a specific ticker or CIK, e.g. a site search

@@ -197,6 +197,21 @@ generated from the OpenAPI spec sit alongside the hand-written ones above:
 | `client.webhooks` | `.create()`, `.list()`, `.delete(id)`, `.events()` |
 | `client.search(q, { limit? })` | Name search for companies and insiders. Free tier |
 
+**Congress date quality.** Each congress trade (and convergence leg) has
+`disclosureLagDays: number | null` and `dateQuality: string | null`. When the
+filing's own dates are impossible or implausible, the lag is `null` and
+`dateQuality` is one of `"transaction_after_disclosure"`,
+`"future_transaction_date"` or `"implausible_lag"`; the raw dates are still
+returned. A lag over 45 days is not a legal finding.
+
+```ts
+const trades = await client.congress.trades({ ticker: "NVDA" });
+for (const t of trades) {
+  const lag = t.disclosureLagDays === null ? `dates unreliable (${t.dateQuality})` : `${t.disclosureLagDays}d`;
+  console.log(t.politician.fullName, t.transactionDate, lag);
+}
+```
+
 Post-trade returns (1d/1w/1m/3m/6m) come back on transaction rows, and the
 `minReturn*` screening filters are parameters on `client.transactions.list()`
 *(returns visible free; screening Pro)*.
