@@ -36,6 +36,10 @@ export interface ErrorDetail {
   currentPlan?: string;
   /** Machine-readable class of miss on a ticker 404: `punctuation_variant` (an alternate spelling was verified to exist) or `unrecognized` (the symbol is absent — this does not assert why). Omitted when not applicable. */
   reason?: string;
+  /** On a 404 for an unmatched `/v1/*` or `/api/*` path: the real path (with your query string) when the request matches a known alias or a registered route under a different prefix. Omitted when not applicable. */
+  didYouMean?: string;
+  /** On a 404 for an unmatched `/v1/*` or `/api/*` path: link to the API documentation. Omitted when not applicable. */
+  docsUrl?: string;
 }
 
 /** Standard error envelope returned by every non-2xx response. */
