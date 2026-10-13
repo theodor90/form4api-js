@@ -217,6 +217,7 @@ export interface CreateWebhookRequest {
   url: string | null;
   /** Event types to subscribe to (exact names the API returns as EventType values, not dotted names): "TransactionFiled" (Free — new Form 4 transaction), "ClusterBuy" (Free), "ClusterSell" (Free), "CongressTradeFiled" (Starter+ — STOCK Act trade ingested, payload includes disclosureLagDays (null when dateQuality is set), see the endpoint description), "ConvergenceSignal" (Pro+ — insider cluster-buy and a congressional purchase converged on the same ticker within the detector's window). At least one is required. Some event types require a minimum plan (independent of the subscription count cap, shown above per type); requesting one your plan doesn't meet rejects the whole request with 402 PLAN_REQUIRED. */
   eventTypes: string[] | null;
+  authHeader?: WebhookAuthHeaderRequest;
 }
 
 export interface DataQualityResponse {
@@ -621,6 +622,7 @@ export interface TransactionResponse {
   isDerivative: boolean;
   transactionDate: string;
   periodOfReport: string;
+  filedAt: string;
   return1d: number | null;
   return1w: number | null;
   return1m: number | null;
@@ -650,6 +652,21 @@ export interface WaitlistRequest {
   plan: string;
   interval?: string;
   source?: string;
+}
+
+/** Optional. One custom HTTP header sent with every delivery to this subscription, e.g. { "name": "Authorization", "value": "Bearer ..." } for a receiver that rejects unauthenticated requests. Invalid or reserved names are rejected with 400 INVALID_AUTH_HEADER. The value is never returned by any endpoint. */
+export interface WebhookAuthHeaderRequest {
+  /** HTTP header name: 1-64 characters of letters, digits and !#$%&'*+.^_`|~-. Reserved names (Host, Content-Type, Cookie, X-Insider-*, X-Event-Type, X-Delivery-Id and similar) are rejected. */
+  name: string | null;
+  /** Header value: 1-1024 printable ASCII characters. Write-only; never returned. */
+  value: string | null;
+}
+
+export interface WebhookAuthHeaderRequest2 {
+  /** HTTP header name: 1-64 characters of letters, digits and !#$%&'*+.^_`|~-. Reserved names (Host, Content-Type, Cookie, X-Insider-*, X-Event-Type, X-Delivery-Id and similar) are rejected. */
+  name: string | null;
+  /** Header value: 1-1024 printable ASCII characters. Write-only; never returned. */
+  value: string | null;
 }
 
 export interface ListForm144Params {
@@ -844,6 +861,21 @@ export interface GetCongressTickerRollupParams {
   window_days?: number;
 }
 
+export interface ListSchedule13DGParams {
+  /** Company ticker symbol, case-insensitive (e.g. "AAPL"). Omit to search across all companies. */
+  ticker?: string;
+  /** Filter to one form type: "13D" (active investor, may seek control/influence) or "13G" (passive/qualified investor). Case-insensitive. Omit for both. */
+  form_type?: string;
+  /** When true, only returns amendments (SC 13D/A or SC 13G/A rows). When false, only returns original filings. Omit for both. */
+  is_amendment?: boolean;
+  /** 1-based page number. Defaults to 1. */
+  page?: number;
+  /** Rows per page. Defaults to 50, maximum 200. `limit` is accepted as an alias; if both are given, per_page wins. */
+  per_page?: number;
+  /** Alias for per_page. */
+  limit?: number;
+}
+
 export class GeneratedCompaniesResource {
   constructor(protected readonly client: Form4ApiClient) {}
 
@@ -949,7 +981,7 @@ export class GeneratedHoldingsResource {
 
   /**
    * List institutional holdings from Form 13F-HR (Business plan+)
-   * Returns a paginated list of individual position rows from Form 13F-HR institutional holdings reports (quarterly disclosures by managers with $100M+ AUM), most recent report period and highest value first. Each row includes the manager name/CIK, report period, issuer name/ticker, CUSIP, security class, position value and share count, share/voting authority type, and the source filing's accession number and filed date. A single security can appear multiple times per manager when sub-managers each report it separately (e.g. Berkshire's subsidiaries). Use GET /v1/managers instead when you want one row per manager (their latest filing + total AUM) rather than position-level detail. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data itself is inherently quarter-lagged (SEC filing deadline is 45 days after quarter end).
+   * Returns a paginated list of individual position rows from Form 13F-HR institutional holdings reports (quarterly disclosures by managers with $100M+ AUM), most recent report period and highest value first. Each row includes the manager name/CIK, report period, issuer name/ticker, CUSIP, security class, position value and share count, share/voting authority type, and the source filing's accession number and filed date. Per manager and report period only the lines of the filings that currently count are returned: the newest original or RESTATEMENT 13F-HR/A, plus every NEW HOLDINGS amendment filed after it (those hold only the added lines); superseded originals and amendments are not returned, so an original and its restatement are never both present. Amendments whose type is not recorded are treated as additions when they report fewer than half the entries of that base filing. A single security can appear multiple times per manager when sub-managers each report it separately (e.g. Berkshire's subsidiaries). Use GET /v1/managers instead when you want one row per manager (their latest filing + total AUM) rather than position-level detail. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data itself is inherently quarter-lagged (SEC filing deadline is 45 days after quarter end).
    */
   async list(params?: ListHoldingsParams): Promise<HoldingResponse[]> {
     return this.client._get<HoldingResponse[]>(`/v1/holdings`, toQuery(params));
@@ -957,7 +989,7 @@ export class GeneratedHoldingsResource {
 
   /**
    * List institutional managers with their latest 13F-HR (Business plan+)
-   * Returns one row per institutional manager (13F filer), summarising their MOST RECENT 13F-HR filing — manager name/CIK, report period, total reported position value (AUM) and entry count, filed date, and accession number — ranked by AUM descending. Use this for manager-level discovery ("who are the biggest 13F filers?", "rank Apple's institutional holders") before drilling into position detail via GET /v1/holdings?manager_cik=. Amended (IsAmendment=true) filings are excluded from the 'latest' pick. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data is inherently quarter-lagged (SEC deadline is 45 days after quarter end).
+   * Returns one row per institutional manager (13F filer), summarising their MOST RECENT 13F-HR filing — manager name/CIK, report period, total reported position value (AUM) and entry count, filed date, and accession number — ranked by AUM descending. Use this for manager-level discovery ("who are the biggest 13F filers?", "rank Apple's institutional holders") before drilling into position detail via GET /v1/holdings?manager_cik=. The 'latest' pick is the newest original or RESTATEMENT 13F-HR/A for the manager's latest report period; amendments of type NEW HOLDINGS (which only add lines) are not picked, nor are amendments whose type is not recorded and which report fewer than half the entries of that base filing; the reported totals are those of the picked filing alone. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data is inherently quarter-lagged (SEC deadline is 45 days after quarter end).
    */
   async managers(params?: ListManagersParams): Promise<ManagerResponse[]> {
     return this.client._get<ManagerResponse[]>(`/v1/managers`, toQuery(params));
@@ -1053,6 +1085,18 @@ AvgReturn1w, etc.) are stored as FRACTIONS — 0.05 means +5%.
   }
 }
 
+export class GeneratedOwnershipResource {
+  constructor(protected readonly client: Form4ApiClient) {}
+
+  /**
+   * List Schedule 13D/13G >5% beneficial-ownership crossings (Business plan+)
+   * Returns every parsed >5% beneficial-ownership crossing event for a company — filer/reporting person, ownership percent, event date, form type (13D or 13G), and amendment status — parsed from EDGAR's structured Schedule 13D/13G cover-page XML (mandatory since the SEC's 2023 rule, compliance date 2024-12-18). SC 13D indicates an "active" investor who may seek control or influence over the issuer and must file within five business days of crossing the threshold (shortened from 10 days by the SEC's 2023 rule amendments, effective 2024-02-05); SC 13G is a lighter, less frequent filing for "passive"/qualified investors (e.g. index funds), with its own accelerated deadlines effective 2024-09-30. A single accession can carry several rows when the filing is a joint filing (e.g. a fund, its general partner, and the individual who controls both) — each reporting person has its own ownership percent. Results exclude rows superseded by a later SC 13D/A or SC 13G/A amendment; the isAmendment field on a returned row indicates whether that row is itself an amendment, not whether it has since been superseded. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
+   */
+  async schedule13dg(params?: ListSchedule13DGParams): Promise<Schedule13DGResponse[]> {
+    return this.client._get<Schedule13DGResponse[]>(`/v1/ownership/13d-13g`, toQuery(params));
+  }
+}
+
 export class GeneratedSignalsResource {
   constructor(protected readonly client: Form4ApiClient) {}
 
@@ -1066,7 +1110,7 @@ export class GeneratedSignalsResource {
 
   /**
    * Explain why a signal fired: the insiders and trades counted, what was excluded, and the criteria (Business plan+)
-   * Use this when the question is WHY a named company's signal fired, or WHICH insiders and trades made up its cluster. It takes the ticker directly, so there is no need to call GET /v1/signals first; that endpoint is for finding which companies have signals. Reconstructs the full evidence behind one company's insider signal from GET /v1/signals: the detection criteria (5-day cluster window, 3-insider threshold, 90-day ratio window, 10b5-1 exclusion), the list of cluster buyers and sellers (each with their role and individual trades in the window), trades that were excluded from the cluster count and why (10b5-1 plan or superseded by amendment), and the raw buy/sell share totals behind the 90-day ratio. Use this to audit or debug a specific signal rather than to scan many companies (use GET /v1/signals for that). This is a LIVE reconstruction from current non-superseded data, computed on every request (no caching) — it can differ slightly from the originally stored signal if trades were amended afterward. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Returns 404 COMPANY_NOT_FOUND if the ticker isn't tracked, 404 SIGNAL_NOT_FOUND if no signal exists for the given/most-recent date, or 400 INVALID_DATE if `date` isn't YYYY-MM-DD.
+   * Use this when the question is WHY a named company's signal fired, or WHICH insiders and trades made up its cluster. It takes the ticker directly, so there is no need to call GET /v1/signals first; that endpoint is for finding which companies have signals. Reconstructs the full evidence behind one company's insider signal from GET /v1/signals: the detection criteria (5-day cluster window, 3-insider threshold, 90-day ratio window, 10b5-1 and derivative-row exclusion), the list of cluster buyers and sellers (each with their role and individual trades in the window), trades that were excluded from the cluster count and why (10b5-1 plan, derivative security, or superseded by amendment), and the raw buy/sell share totals behind the 90-day ratio. Use this to audit or debug a specific signal rather than to scan many companies (use GET /v1/signals for that). This is a LIVE reconstruction from current non-superseded data, computed on every request (no caching) — it can differ slightly from the originally stored signal if trades were amended afterward. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Returns 404 COMPANY_NOT_FOUND if the ticker isn't tracked, 404 SIGNAL_NOT_FOUND if no signal exists for the given/most-recent date, or 400 INVALID_DATE if `date` isn't YYYY-MM-DD.
    */
   async explain(ticker: string, params?: ExplainSignalParams): Promise<SignalExplanation> {
     return this.client._get<SignalExplanation>(`/v1/signals/${encodeURIComponent(ticker)}/explain`, toQuery(params));

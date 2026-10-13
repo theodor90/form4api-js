@@ -14,6 +14,7 @@ import {
   GeneratedFilingsResource,
   GeneratedForm144Resource,
   GeneratedHoldingsResource,
+  GeneratedOwnershipResource,
   GeneratedStatsResource,
   GeneratedStatusResource,
 } from "./generated.js";
@@ -61,6 +62,7 @@ export class Form4ApiClient {
   readonly filings: GeneratedFilingsResource;
   readonly form144: GeneratedForm144Resource;
   readonly holdings: GeneratedHoldingsResource;
+  readonly ownership: GeneratedOwnershipResource;
   readonly stats: GeneratedStatsResource;
   readonly status: GeneratedStatusResource;
   readonly dataQuality: GeneratedDataQualityResource;
@@ -84,6 +86,7 @@ export class Form4ApiClient {
     this.filings = new GeneratedFilingsResource(this);
     this.form144 = new GeneratedForm144Resource(this);
     this.holdings = new GeneratedHoldingsResource(this);
+    this.ownership = new GeneratedOwnershipResource(this);
     this.stats = new GeneratedStatsResource(this);
     this.status = new GeneratedStatusResource(this);
     this.dataQuality = new GeneratedDataQualityResource(this);
@@ -125,6 +128,11 @@ export class Form4ApiClient {
 
   async _post<T>(path: string, body?: unknown): Promise<T> {
     const res = await this._fetch("POST", this.baseUrl + path, body);
+    return this._parse<T>(res);
+  }
+
+  async _put<T>(path: string, body?: unknown): Promise<T> {
+    const res = await this._fetch("PUT", this.baseUrl + path, body);
     return this._parse<T>(res);
   }
 

@@ -26,6 +26,20 @@ export class TransactionsResource {
     if (params.maxValue !== undefined) q["max_value"] = String(params.maxValue);
     if (params.minShares !== undefined) q["min_shares"] = String(params.minShares);
     if (params.maxShares !== undefined) q["max_shares"] = String(params.maxShares);
+    const returnFilters: Array<[string, number | undefined]> = [
+      ["min_return_1d", params.minReturn1d], ["max_return_1d", params.maxReturn1d],
+      ["min_return_1w", params.minReturn1w], ["max_return_1w", params.maxReturn1w],
+      ["min_return_1m", params.minReturn1m], ["max_return_1m", params.maxReturn1m],
+      ["min_return_3m", params.minReturn3m], ["max_return_3m", params.maxReturn3m],
+      ["min_return_6m", params.minReturn6m], ["max_return_6m", params.maxReturn6m],
+    ];
+    for (const [key, value] of returnFilters) {
+      if (value !== undefined) q[key] = String(value);
+    }
+    if (params.hasReturns !== undefined) q["has_returns"] = String(params.hasReturns);
+    if (params.instOwnershipTrend !== undefined) q["inst_ownership_trend"] = params.instOwnershipTrend;
+    if (params.role !== undefined) q["role"] = params.role;
+    if (params.sort !== undefined) q["sort"] = params.sort;
     q["page"] = String(params.page ?? 1);
     q["per_page"] = String(params.perPage ?? 50);
     return this.client._get<Transaction[]>("/v1/transactions", q);

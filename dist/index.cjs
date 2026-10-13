@@ -29,6 +29,7 @@ __export(index_exports, {
   GeneratedForm144Resource: () => GeneratedForm144Resource,
   GeneratedHoldingsResource: () => GeneratedHoldingsResource,
   GeneratedInsidersResource: () => GeneratedInsidersResource,
+  GeneratedOwnershipResource: () => GeneratedOwnershipResource,
   GeneratedSignalsResource: () => GeneratedSignalsResource,
   GeneratedStatsResource: () => GeneratedStatsResource,
   GeneratedStatusResource: () => GeneratedStatusResource,
@@ -36,7 +37,8 @@ __export(index_exports, {
   NotFoundError: () => NotFoundError,
   PaginationLimitError: () => PaginationLimitError,
   PlanError: () => PlanError,
-  RateLimitError: () => RateLimitError
+  RateLimitError: () => RateLimitError,
+  verifyWebhook: () => verifyWebhook
 });
 module.exports = __toCommonJS(index_exports);
 
@@ -218,14 +220,14 @@ var GeneratedHoldingsResource = class {
   client;
   /**
    * List institutional holdings from Form 13F-HR (Business plan+)
-   * Returns a paginated list of individual position rows from Form 13F-HR institutional holdings reports (quarterly disclosures by managers with $100M+ AUM), most recent report period and highest value first. Each row includes the manager name/CIK, report period, issuer name/ticker, CUSIP, security class, position value and share count, share/voting authority type, and the source filing's accession number and filed date. A single security can appear multiple times per manager when sub-managers each report it separately (e.g. Berkshire's subsidiaries). Use GET /v1/managers instead when you want one row per manager (their latest filing + total AUM) rather than position-level detail. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data itself is inherently quarter-lagged (SEC filing deadline is 45 days after quarter end).
+   * Returns a paginated list of individual position rows from Form 13F-HR institutional holdings reports (quarterly disclosures by managers with $100M+ AUM), most recent report period and highest value first. Each row includes the manager name/CIK, report period, issuer name/ticker, CUSIP, security class, position value and share count, share/voting authority type, and the source filing's accession number and filed date. Per manager and report period only the lines of the filings that currently count are returned: the newest original or RESTATEMENT 13F-HR/A, plus every NEW HOLDINGS amendment filed after it (those hold only the added lines); superseded originals and amendments are not returned, so an original and its restatement are never both present. Amendments whose type is not recorded are treated as additions when they report fewer than half the entries of that base filing. A single security can appear multiple times per manager when sub-managers each report it separately (e.g. Berkshire's subsidiaries). Use GET /v1/managers instead when you want one row per manager (their latest filing + total AUM) rather than position-level detail. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data itself is inherently quarter-lagged (SEC filing deadline is 45 days after quarter end).
    */
   async list(params) {
     return this.client._get(`/v1/holdings`, toQuery(params));
   }
   /**
    * List institutional managers with their latest 13F-HR (Business plan+)
-   * Returns one row per institutional manager (13F filer), summarising their MOST RECENT 13F-HR filing — manager name/CIK, report period, total reported position value (AUM) and entry count, filed date, and accession number — ranked by AUM descending. Use this for manager-level discovery ("who are the biggest 13F filers?", "rank Apple's institutional holders") before drilling into position detail via GET /v1/holdings?manager_cik=. Amended (IsAmendment=true) filings are excluded from the 'latest' pick. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data is inherently quarter-lagged (SEC deadline is 45 days after quarter end).
+   * Returns one row per institutional manager (13F filer), summarising their MOST RECENT 13F-HR filing — manager name/CIK, report period, total reported position value (AUM) and entry count, filed date, and accession number — ranked by AUM descending. Use this for manager-level discovery ("who are the biggest 13F filers?", "rank Apple's institutional holders") before drilling into position detail via GET /v1/holdings?manager_cik=. The 'latest' pick is the newest original or RESTATEMENT 13F-HR/A for the manager's latest report period; amendments of type NEW HOLDINGS (which only add lines) are not picked, nor are amendments whose type is not recorded and which report fewer than half the entries of that base filing; the reported totals are those of the picked filing alone. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data is inherently quarter-lagged (SEC deadline is 45 days after quarter end).
    */
   async managers(params) {
     return this.client._get(`/v1/managers`, toQuery(params));
@@ -317,6 +319,19 @@ var GeneratedInsidersResource = class {
     return this.client._get(`/v1/insiders/${encodeURIComponent(cik)}/summary`);
   }
 };
+var GeneratedOwnershipResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * List Schedule 13D/13G >5% beneficial-ownership crossings (Business plan+)
+   * Returns every parsed >5% beneficial-ownership crossing event for a company — filer/reporting person, ownership percent, event date, form type (13D or 13G), and amendment status — parsed from EDGAR's structured Schedule 13D/13G cover-page XML (mandatory since the SEC's 2023 rule, compliance date 2024-12-18). SC 13D indicates an "active" investor who may seek control or influence over the issuer and must file within five business days of crossing the threshold (shortened from 10 days by the SEC's 2023 rule amendments, effective 2024-02-05); SC 13G is a lighter, less frequent filing for "passive"/qualified investors (e.g. index funds), with its own accelerated deadlines effective 2024-09-30. A single accession can carry several rows when the filing is a joint filing (e.g. a fund, its general partner, and the individual who controls both) — each reporting person has its own ownership percent. Results exclude rows superseded by a later SC 13D/A or SC 13G/A amendment; the isAmendment field on a returned row indicates whether that row is itself an amendment, not whether it has since been superseded. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
+   */
+  async schedule13dg(params) {
+    return this.client._get(`/v1/ownership/13d-13g`, toQuery(params));
+  }
+};
 var GeneratedSignalsResource = class {
   constructor(client) {
     this.client = client;
@@ -331,7 +346,7 @@ var GeneratedSignalsResource = class {
   }
   /**
    * Explain why a signal fired: the insiders and trades counted, what was excluded, and the criteria (Business plan+)
-   * Reconstructs the full evidence behind one company's insider signal from GET /v1/signals: the detection criteria (5-day cluster window, 3-insider threshold, 90-day ratio window, 10b5-1 exclusion), the list of cluster buyers and sellers (each with their role and individual trades in the window), trades that were excluded from the cluster count and why (10b5-1 plan or superseded by amendment), and the raw buy/sell share totals behind the 90-day ratio. Use this to audit or debug a specific signal rather than to scan many companies (use GET /v1/signals for that). This is a LIVE reconstruction from current non-superseded data, computed on every request (no caching) — it can differ slightly from the originally stored signal if trades were amended afterward. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Returns 404 COMPANY_NOT_FOUND if the ticker isn't tracked, 404 SIGNAL_NOT_FOUND if no signal exists for the given/most-recent date, or 400 INVALID_DATE if `date` isn't YYYY-MM-DD.
+   * Use this when the question is WHY a named company's signal fired, or WHICH insiders and trades made up its cluster. It takes the ticker directly, so there is no need to call GET /v1/signals first; that endpoint is for finding which companies have signals. Reconstructs the full evidence behind one company's insider signal from GET /v1/signals: the detection criteria (5-day cluster window, 3-insider threshold, 90-day ratio window, 10b5-1 and derivative-row exclusion), the list of cluster buyers and sellers (each with their role and individual trades in the window), trades that were excluded from the cluster count and why (10b5-1 plan, derivative security, or superseded by amendment), and the raw buy/sell share totals behind the 90-day ratio. Use this to audit or debug a specific signal rather than to scan many companies (use GET /v1/signals for that). This is a LIVE reconstruction from current non-superseded data, computed on every request (no caching) — it can differ slightly from the originally stored signal if trades were amended afterward. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Returns 404 COMPANY_NOT_FOUND if the ticker isn't tracked, 404 SIGNAL_NOT_FOUND if no signal exists for the given/most-recent date, or 400 INVALID_DATE if `date` isn't YYYY-MM-DD.
    */
   async explain(ticker, params) {
     return this.client._get(`/v1/signals/${encodeURIComponent(ticker)}/explain`, toQuery(params));
@@ -480,6 +495,25 @@ var TransactionsResource = class {
     if (params.maxValue !== void 0) q["max_value"] = String(params.maxValue);
     if (params.minShares !== void 0) q["min_shares"] = String(params.minShares);
     if (params.maxShares !== void 0) q["max_shares"] = String(params.maxShares);
+    const returnFilters = [
+      ["min_return_1d", params.minReturn1d],
+      ["max_return_1d", params.maxReturn1d],
+      ["min_return_1w", params.minReturn1w],
+      ["max_return_1w", params.maxReturn1w],
+      ["min_return_1m", params.minReturn1m],
+      ["max_return_1m", params.maxReturn1m],
+      ["min_return_3m", params.minReturn3m],
+      ["max_return_3m", params.maxReturn3m],
+      ["min_return_6m", params.minReturn6m],
+      ["max_return_6m", params.maxReturn6m]
+    ];
+    for (const [key, value] of returnFilters) {
+      if (value !== void 0) q[key] = String(value);
+    }
+    if (params.hasReturns !== void 0) q["has_returns"] = String(params.hasReturns);
+    if (params.instOwnershipTrend !== void 0) q["inst_ownership_trend"] = params.instOwnershipTrend;
+    if (params.role !== void 0) q["role"] = params.role;
+    if (params.sort !== void 0) q["sort"] = params.sort;
     q["page"] = String(params.page ?? 1);
     q["per_page"] = String(params.perPage ?? 50);
     return this.client._get("/v1/transactions", q);
@@ -530,14 +564,46 @@ var WebhooksResource = class {
     this.client = client;
   }
   client;
-  async create(url, eventTypes) {
-    return this.client._post("/v1/webhooks", { url, eventTypes });
+  /**
+   * Registers a webhook. `eventTypes` are exact names: TransactionFiled,
+   * ClusterBuy, ClusterSell, CongressTradeFiled (Starter+), ConvergenceSignal
+   * (Pro+). Pass `authHeader` to have one custom header (for example
+   * `Authorization: Bearer ...`) sent with every delivery. The signing secret
+   * in the response is shown once.
+   */
+  async create(url, eventTypes, options = {}) {
+    const body = { url, eventTypes };
+    if (options.authHeader !== void 0) body["authHeader"] = options.authHeader;
+    return this.client._post("/v1/webhooks", body);
   }
   async list() {
     return this.client._get("/v1/webhooks");
   }
   async delete(subscriptionId) {
     return this.client._delete(`/v1/webhooks/${subscriptionId}`);
+  }
+  /** Re-enables a subscription the system auto-disabled after delivery failures. */
+  async enable(subscriptionId) {
+    return this.client._post(`/v1/webhooks/${subscriptionId}/enable`);
+  }
+  /**
+   * Sends one synthetic delivery to the subscription's URL now (payload has
+   * `"test": true`). A failed send is reported in the result (`delivered:
+   * false`, `error`), not thrown.
+   */
+  async test(subscriptionId) {
+    return this.client._post(`/v1/webhooks/${subscriptionId}/test`);
+  }
+  /** Sets or replaces the custom auth header sent with deliveries. The value is write-only. */
+  async setAuthHeader(subscriptionId, header) {
+    return this.client._put(
+      `/v1/webhooks/${subscriptionId}/auth-header`,
+      header
+    );
+  }
+  /** Removes the custom auth header. Idempotent; resolves with no value (204). */
+  async deleteAuthHeader(subscriptionId) {
+    return this.client._delete(`/v1/webhooks/${subscriptionId}/auth-header`);
   }
   async events(params = {}) {
     const q = {};
@@ -547,7 +613,7 @@ var WebhooksResource = class {
 };
 
 // src/version.ts
-var SDK_VERSION = "1.7.0";
+var SDK_VERSION = "1.8.0";
 
 // src/client.ts
 var DEFAULT_BASE_URL = "https://api.form4api.com";
@@ -570,6 +636,7 @@ var Form4ApiClient = class {
   filings;
   form144;
   holdings;
+  ownership;
   stats;
   status;
   dataQuality;
@@ -592,6 +659,7 @@ var Form4ApiClient = class {
     this.filings = new GeneratedFilingsResource(this);
     this.form144 = new GeneratedForm144Resource(this);
     this.holdings = new GeneratedHoldingsResource(this);
+    this.ownership = new GeneratedOwnershipResource(this);
     this.stats = new GeneratedStatsResource(this);
     this.status = new GeneratedStatusResource(this);
     this.dataQuality = new GeneratedDataQualityResource(this);
@@ -629,6 +697,10 @@ var Form4ApiClient = class {
   }
   async _post(path, body) {
     const res = await this._fetch("POST", this.baseUrl + path, body);
+    return this._parse(res);
+  }
+  async _put(path, body) {
+    const res = await this._fetch("PUT", this.baseUrl + path, body);
     return this._parse(res);
   }
   async _delete(path) {
@@ -712,6 +784,39 @@ var Form4ApiClient = class {
     }
   }
 };
+
+// src/webhook.ts
+async function getSubtle() {
+  const global = globalThis.crypto?.subtle;
+  if (global) return global;
+  const specifier = "node:crypto";
+  const mod = await import(specifier);
+  return mod.webcrypto.subtle;
+}
+var SIGNATURE_PATTERN = /^sha256=([0-9a-f]{64})$/;
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+async function verifyWebhook(rawBody, signatureHeader, secret) {
+  if (typeof signatureHeader !== "string") return false;
+  const match = SIGNATURE_PATTERN.exec(signatureHeader);
+  if (!match) return false;
+  const encoder = new TextEncoder();
+  const subtle = await getSubtle();
+  const key = await subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"]
+  );
+  const data = typeof rawBody === "string" ? encoder.encode(rawBody) : rawBody;
+  return subtle.verify("HMAC", key, hexToBytes(match[1]), data);
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   AuthError,
@@ -723,6 +828,7 @@ var Form4ApiClient = class {
   GeneratedForm144Resource,
   GeneratedHoldingsResource,
   GeneratedInsidersResource,
+  GeneratedOwnershipResource,
   GeneratedSignalsResource,
   GeneratedStatsResource,
   GeneratedStatusResource,
@@ -730,5 +836,6 @@ var Form4ApiClient = class {
   NotFoundError,
   PaginationLimitError,
   PlanError,
-  RateLimitError
+  RateLimitError,
+  verifyWebhook
 });
