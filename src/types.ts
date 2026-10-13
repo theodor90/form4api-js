@@ -91,6 +91,8 @@ export interface WebhookCreated {
   isReadOnly?: boolean;
   /** Name of the custom auth header, if one was set. The value is never returned. */
   authHeaderName?: string | null;
+  /** Set when the URL's host is a temporary tunnel or test host (ngrok, trycloudflare, webhook.site, ...); null otherwise. A warning only; the subscription is created either way. */
+  urlWarning?: string | null;
 }
 
 export interface WebhookSubscription {
@@ -115,6 +117,8 @@ export interface WebhookSubscription {
   lastErrorClass: string | null;
   /** Name of the custom auth header sent with deliveries; null if none. The value is never returned. */
   authHeaderName: string | null;
+  /** Set when the URL's host is a temporary tunnel or test host (ngrok, trycloudflare, webhook.site, ...); null otherwise. A warning only. */
+  urlWarning: string | null;
 }
 
 export interface WebhookEnableResult {

@@ -535,6 +535,19 @@ var WebhooksResource = class {
   async list() {
     return this.client._get("/v1/webhooks");
   }
+  /**
+   * Changes the delivery URL of a subscription, keeping its id, secret, event
+   * types and auth header. The URL is checked like `create` (HTTPS, public
+   * address, at most 500 characters); a bad URL throws `InsiderApiError` with
+   * `errorCode` INVALID_REQUEST, INVALID_URL, INSECURE_URL, PRIVATE_ADDRESS or
+   * UNRESOLVABLE_HOST. Works on active and auto-disabled subscriptions but does
+   * NOT re-enable a disabled one: call `enable(id)` afterwards. The `last*`
+   * health fields come back null because they described the old URL. Shares
+   * the 3-per-minute webhook budget with create. All plans.
+   */
+  async update(subscriptionId, url) {
+    return this.client._patch(`/v1/webhooks/${subscriptionId}`, { url });
+  }
   async delete(subscriptionId) {
     return this.client._delete(`/v1/webhooks/${subscriptionId}`);
   }
@@ -569,7 +582,7 @@ var WebhooksResource = class {
 };
 
 // src/version.ts
-var SDK_VERSION = "1.8.0";
+var SDK_VERSION = "1.9.0";
 
 // src/client.ts
 var DEFAULT_BASE_URL = "https://api.form4api.com";
@@ -657,6 +670,10 @@ var Form4ApiClient = class {
   }
   async _put(path, body) {
     const res = await this._fetch("PUT", this.baseUrl + path, body);
+    return this._parse(res);
+  }
+  async _patch(path, body) {
+    const res = await this._fetch("PATCH", this.baseUrl + path, body);
     return this._parse(res);
   }
   async _delete(path) {

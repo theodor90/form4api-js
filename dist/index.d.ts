@@ -550,6 +550,10 @@ interface TransactionResponse {
     documentUrl: string;
     institutionalOwnership?: InstitutionalOwnershipDto;
 }
+interface UpdateWebhookRequest {
+    /** New destination URL for event deliveries. Same rules as POST /v1/webhooks: HTTPS, a public (non-private, non-loopback) address, at most 500 characters. */
+    url: string | null;
+}
 interface UptimeDayBucket {
     date: string;
     expected: number;
@@ -1061,6 +1065,8 @@ interface WebhookCreated {
     isReadOnly?: boolean;
     /** Name of the custom auth header, if one was set. The value is never returned. */
     authHeaderName?: string | null;
+    /** Set when the URL's host is a temporary tunnel or test host (ngrok, trycloudflare, webhook.site, ...); null otherwise. A warning only; the subscription is created either way. */
+    urlWarning?: string | null;
 }
 interface WebhookSubscription {
     subscriptionId: number;
@@ -1084,6 +1090,8 @@ interface WebhookSubscription {
     lastErrorClass: string | null;
     /** Name of the custom auth header sent with deliveries; null if none. The value is never returned. */
     authHeaderName: string | null;
+    /** Set when the URL's host is a temporary tunnel or test host (ngrok, trycloudflare, webhook.site, ...); null otherwise. A warning only. */
+    urlWarning: string | null;
 }
 interface WebhookEnableResult {
     subscriptionId: number;
@@ -1265,6 +1273,17 @@ declare class WebhooksResource {
         authHeader?: WebhookAuthHeader;
     }): Promise<WebhookCreated>;
     list(): Promise<WebhookSubscription[]>;
+    /**
+     * Changes the delivery URL of a subscription, keeping its id, secret, event
+     * types and auth header. The URL is checked like `create` (HTTPS, public
+     * address, at most 500 characters); a bad URL throws `InsiderApiError` with
+     * `errorCode` INVALID_REQUEST, INVALID_URL, INSECURE_URL, PRIVATE_ADDRESS or
+     * UNRESOLVABLE_HOST. Works on active and auto-disabled subscriptions but does
+     * NOT re-enable a disabled one: call `enable(id)` afterwards. The `last*`
+     * health fields come back null because they described the old URL. Shares
+     * the 3-per-minute webhook budget with create. All plans.
+     */
+    update(subscriptionId: number, url: string): Promise<WebhookSubscription>;
     delete(subscriptionId: number): Promise<void>;
     /** Re-enables a subscription the system auto-disabled after delivery failures. */
     enable(subscriptionId: number): Promise<WebhookEnableResult>;
@@ -1327,6 +1346,7 @@ declare class Form4ApiClient {
     _get<T>(path: string, params?: Record<string, string>): Promise<T>;
     _post<T>(path: string, body?: unknown): Promise<T>;
     _put<T>(path: string, body?: unknown): Promise<T>;
+    _patch<T>(path: string, body?: unknown): Promise<T>;
     _delete(path: string): Promise<void>;
     private _fetch;
     private _parse;
@@ -1401,4 +1421,4 @@ declare class PaginationLimitError extends PlanError {
  */
 declare function verifyWebhook(rawBody: string | Uint8Array, signatureHeader: string | null | undefined, secret: string): Promise<boolean>;
 
-export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ErrorDetail, type ErrorResponse, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedOwnershipResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ListSchedule13DGParams, type ManagerResponse, NotFoundError, type PaginateOptions, PaginationLimitError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type Schedule13DGResponse, type ScorecardTradeRef, type SearchCompanyResult, type SearchInsiderResult, type SearchParams, type SearchResponse, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookAuthHeader, type WebhookAuthHeaderRequest, type WebhookAuthHeaderRequest2, type WebhookAuthHeaderResult, type WebhookCreated, type WebhookEnableResult, type WebhookEvent, type WebhookEventParams, type WebhookSubscription, type WebhookTestResult, verifyWebhook };
+export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ErrorDetail, type ErrorResponse, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedOwnershipResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ListSchedule13DGParams, type ManagerResponse, NotFoundError, type PaginateOptions, PaginationLimitError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type Schedule13DGResponse, type ScorecardTradeRef, type SearchCompanyResult, type SearchInsiderResult, type SearchParams, type SearchResponse, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UpdateWebhookRequest, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookAuthHeader, type WebhookAuthHeaderRequest, type WebhookAuthHeaderRequest2, type WebhookAuthHeaderResult, type WebhookCreated, type WebhookEnableResult, type WebhookEvent, type WebhookEventParams, type WebhookSubscription, type WebhookTestResult, verifyWebhook };

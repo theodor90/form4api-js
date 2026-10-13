@@ -634,6 +634,11 @@ export interface TransactionResponse {
   institutionalOwnership?: InstitutionalOwnershipDto;
 }
 
+export interface UpdateWebhookRequest {
+  /** New destination URL for event deliveries. Same rules as POST /v1/webhooks: HTTPS, a public (non-private, non-loopback) address, at most 500 characters. */
+  url: string | null;
+}
+
 export interface UptimeDayBucket {
   date: string;
   expected: number;
