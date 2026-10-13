@@ -25,8 +25,13 @@ export type {
   SignalListParams,
   Transaction,
   TransactionListParams,
+  WebhookAuthHeader,
+  WebhookAuthHeaderResult,
   WebhookCreated,
+  WebhookEnableResult,
   WebhookEvent,
   WebhookEventParams,
   WebhookSubscription,
+  WebhookTestResult,
 } from "./types.js";
+export { verifyWebhook } from "./webhook.js";

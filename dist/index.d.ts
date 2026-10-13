@@ -1,161 +1,3 @@
-interface Transaction {
-    ticker: string;
-    companyName: string;
-    insiderName: string;
-    insiderCik: string;
-    insiderTitle: string | null;
-    isDirector: boolean;
-    isOfficer: boolean;
-    is10PctOwner: boolean;
-    accessionNumber: string;
-    securityTitle: string;
-    transactionCode: string;
-    isOpenMarket: boolean;
-    is10b5Plan: boolean;
-    sharesAmount: number;
-    pricePerShare: number | null;
-    totalValue: number | null;
-    sharesOwnedAfter: number | null;
-    directIndirect: string | null;
-    isDerivative: boolean;
-    transactionDate: string;
-    periodOfReport: string;
-    /** Precise UTC SEC-acceptance instant, nullable. */
-    acceptedAt: string | null;
-    /** Public SEC document URL. */
-    documentUrl: string;
-}
-interface Insider {
-    cik: string;
-    name: string;
-    isDirector: boolean;
-    isOfficer: boolean;
-    isTenPercentOwner: boolean;
-    officerTitle: string | null;
-    totalFilings: number;
-}
-interface Company {
-    cik: string;
-    name: string;
-    ticker: string | null;
-    exchange: string | null;
-    totalFilings: number;
-    activeInsiders: number;
-    sicDescription: string | null;
-    stateOfIncorporation: string | null;
-    website: string | null;
-}
-interface InsiderSignal {
-    ticker: string | null;
-    companyName: string;
-    signalDate: string;
-    buySellRatio: number;
-    isClusterBuy: boolean;
-    isClusterSell: boolean;
-    insiderCount: number;
-}
-interface WebhookCreated {
-    subscriptionId: number;
-    url: string;
-    eventTypes: string[];
-    secret: string;
-    createdAt: string;
-    warning: string | null;
-}
-interface WebhookSubscription {
-    subscriptionId: number;
-    url: string;
-    eventTypes: string[];
-    createdAt: string;
-    isActive: boolean;
-}
-interface WebhookEvent {
-    deliveryId: number;
-    subscriptionId: number;
-    eventType: string;
-    attemptCount: number;
-    deliveredAt: string | null;
-    nextRetryAt: string | null;
-    lastStatusCode: number | null;
-    isDead: boolean;
-    payload: string;
-}
-interface CreatedKey {
-    key: string;
-    plan: string;
-    message: string;
-}
-interface TransactionListParams {
-    /** Ticker symbol, case-insensitive. Also accepts a comma-separated list of up to 25 symbols, e.g. "AAPL,MSFT", to match any of them in one call. */
-    ticker?: string;
-    cik?: string;
-    insiderCik?: string;
-    code?: string;
-    /** Start date, inclusive (YYYY-MM-DD). Filters on transactionDate. */
-    from?: string;
-    /** End date, inclusive (YYYY-MM-DD). Filters on transactionDate. */
-    to?: string;
-    /** Inclusive start of the filed-date window (YYYY-MM-DD). Filters on Filing.FiledAt (when the filing became public), not transactionDate. */
-    filedFrom?: string;
-    /** Inclusive end of the filed-date window (YYYY-MM-DD). Filters on Filing.FiledAt. */
-    filedTo?: string;
-    exclude10b5?: boolean;
-    /** Comma-separated transaction codes to include, e.g. "P,S". */
-    codes?: string;
-    /** Comma-separated transaction codes to exclude, e.g. "A,M,F,G". */
-    excludeCodes?: string;
-    /** Include only one category: open_market | grants | derivatives | gifts | other. */
-    category?: string;
-    /** Exclude an entire category, e.g. "derivatives". */
-    excludeCategory?: string;
-    /** Drop derivative-security rows. */
-    excludeDerivative?: boolean;
-    /** Preset: open-market only, no 10b5-1 plans, no derivatives. */
-    significant?: boolean;
-    /** Minimum trade value in USD (shares × price). Pro plan or higher. */
-    minValue?: number;
-    /** Maximum trade value in USD. Pro plan or higher. */
-    maxValue?: number;
-    /** Minimum number of shares. Pro plan or higher. */
-    minShares?: number;
-    /** Maximum number of shares. Pro plan or higher. */
-    maxShares?: number;
-    page?: number;
-    /** Results per page (canonical). The backend also accepts a `limit` alias, but `perPage` is the name this SDK sends. */
-    perPage?: number;
-}
-interface InsiderTransactionParams {
-    from?: string;
-    to?: string;
-    page?: number;
-    perPage?: number;
-}
-interface SignalListParams {
-    ticker?: string;
-    clusterBuy?: boolean;
-    clusterSell?: boolean;
-    page?: number;
-    perPage?: number;
-}
-interface WebhookEventParams {
-    since?: string;
-}
-interface SearchParams {
-    /** Maximum number of results per section (companies, insiders), applied independently to each. Defaults to 8, clamped to 1-20. */
-    limit?: number;
-}
-interface PaginateOptions {
-    /**
-     * Stop after yielding this many pages, even if more data is available.
-     * Default: unbounded — `paginate()` keeps requesting pages until the API
-     * returns a short/empty page or (since the backend's 2026-08-01 plan-gated
-     * pagination depth) rejects the next page with a `PaginationLimitError`.
-     * Set this to give a script a deterministic stopping point without relying
-     * on hitting the plan's depth limit.
-     */
-    maxPages?: number;
-}
-
 interface ErrorDetail {
     /** Stable machine-readable error code, e.g. `PLAN_REQUIRED`. Branch on this, not on `message`. */
     code: string;
@@ -171,6 +13,10 @@ interface ErrorDetail {
     currentPlan?: string;
     /** Machine-readable class of miss on a ticker 404: `punctuation_variant` (an alternate spelling was verified to exist) or `unrecognized` (the symbol is absent — this does not assert why). Omitted when not applicable. */
     reason?: string;
+    /** On a 404 for an unmatched `/v1/*` or `/api/*` path: the real path (with your query string) when the request matches a known alias or a registered route under a different prefix. Omitted when not applicable. */
+    didYouMean?: string;
+    /** On a 404 for an unmatched `/v1/*` or `/api/*` path: link to the API documentation. Omitted when not applicable. */
+    docsUrl?: string;
 }
 /** Standard error envelope returned by every non-2xx response. */
 interface ErrorResponse {
@@ -329,6 +175,7 @@ interface CreateWebhookRequest {
     url: string | null;
     /** Event types to subscribe to (exact names the API returns as EventType values, not dotted names): "TransactionFiled" (Free — new Form 4 transaction), "ClusterBuy" (Free), "ClusterSell" (Free), "CongressTradeFiled" (Starter+ — STOCK Act trade ingested, payload includes disclosureLagDays (null when dateQuality is set), see the endpoint description), "ConvergenceSignal" (Pro+ — insider cluster-buy and a congressional purchase converged on the same ticker within the detector's window). At least one is required. Some event types require a minimum plan (independent of the subscription count cap, shown above per type); requesting one your plan doesn't meet rejects the whole request with 402 PLAN_REQUIRED. */
     eventTypes: string[] | null;
+    authHeader?: WebhookAuthHeaderRequest;
 }
 interface DataQualityResponse {
     asOf: string;
@@ -692,6 +539,7 @@ interface TransactionResponse {
     isDerivative: boolean;
     transactionDate: string;
     periodOfReport: string;
+    filedAt: string;
     return1d: number | null;
     return1w: number | null;
     return1m: number | null;
@@ -718,6 +566,19 @@ interface WaitlistRequest {
     plan: string;
     interval?: string;
     source?: string;
+}
+/** Optional. One custom HTTP header sent with every delivery to this subscription, e.g. { "name": "Authorization", "value": "Bearer ..." } for a receiver that rejects unauthenticated requests. Invalid or reserved names are rejected with 400 INVALID_AUTH_HEADER. The value is never returned by any endpoint. */
+interface WebhookAuthHeaderRequest {
+    /** HTTP header name: 1-64 characters of letters, digits and !#$%&'*+.^_`|~-. Reserved names (Host, Content-Type, Cookie, X-Insider-*, X-Event-Type, X-Delivery-Id and similar) are rejected. */
+    name: string | null;
+    /** Header value: 1-1024 printable ASCII characters. Write-only; never returned. */
+    value: string | null;
+}
+interface WebhookAuthHeaderRequest2 {
+    /** HTTP header name: 1-64 characters of letters, digits and !#$%&'*+.^_`|~-. Reserved names (Host, Content-Type, Cookie, X-Insider-*, X-Event-Type, X-Delivery-Id and similar) are rejected. */
+    name: string | null;
+    /** Header value: 1-1024 printable ASCII characters. Write-only; never returned. */
+    value: string | null;
 }
 interface ListForm144Params {
     /** Company ticker symbol, case-insensitive (e.g. "AAPL"). Omit to search across all companies. */
@@ -895,6 +756,20 @@ interface GetCongressTickerRollupParams {
     /** Trailing window in days ending now, applied to transactionDate. Omit for all-time. */
     window_days?: number;
 }
+interface ListSchedule13DGParams {
+    /** Company ticker symbol, case-insensitive (e.g. "AAPL"). Omit to search across all companies. */
+    ticker?: string;
+    /** Filter to one form type: "13D" (active investor, may seek control/influence) or "13G" (passive/qualified investor). Case-insensitive. Omit for both. */
+    form_type?: string;
+    /** When true, only returns amendments (SC 13D/A or SC 13G/A rows). When false, only returns original filings. Omit for both. */
+    is_amendment?: boolean;
+    /** 1-based page number. Defaults to 1. */
+    page?: number;
+    /** Rows per page. Defaults to 50, maximum 200. `limit` is accepted as an alias; if both are given, per_page wins. */
+    per_page?: number;
+    /** Alias for per_page. */
+    limit?: number;
+}
 declare class GeneratedCompaniesResource {
     protected readonly client: Form4ApiClient;
     constructor(client: Form4ApiClient);
@@ -970,12 +845,12 @@ declare class GeneratedHoldingsResource {
     constructor(client: Form4ApiClient);
     /**
      * List institutional holdings from Form 13F-HR (Business plan+)
-     * Returns a paginated list of individual position rows from Form 13F-HR institutional holdings reports (quarterly disclosures by managers with $100M+ AUM), most recent report period and highest value first. Each row includes the manager name/CIK, report period, issuer name/ticker, CUSIP, security class, position value and share count, share/voting authority type, and the source filing's accession number and filed date. A single security can appear multiple times per manager when sub-managers each report it separately (e.g. Berkshire's subsidiaries). Use GET /v1/managers instead when you want one row per manager (their latest filing + total AUM) rather than position-level detail. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data itself is inherently quarter-lagged (SEC filing deadline is 45 days after quarter end).
+     * Returns a paginated list of individual position rows from Form 13F-HR institutional holdings reports (quarterly disclosures by managers with $100M+ AUM), most recent report period and highest value first. Each row includes the manager name/CIK, report period, issuer name/ticker, CUSIP, security class, position value and share count, share/voting authority type, and the source filing's accession number and filed date. Per manager and report period only the lines of the filings that currently count are returned: the newest original or RESTATEMENT 13F-HR/A, plus every NEW HOLDINGS amendment filed after it (those hold only the added lines); superseded originals and amendments are not returned, so an original and its restatement are never both present. Amendments whose type is not recorded are treated as additions when they report fewer than half the entries of that base filing. A single security can appear multiple times per manager when sub-managers each report it separately (e.g. Berkshire's subsidiaries). Use GET /v1/managers instead when you want one row per manager (their latest filing + total AUM) rather than position-level detail. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data itself is inherently quarter-lagged (SEC filing deadline is 45 days after quarter end).
      */
     list(params?: ListHoldingsParams): Promise<HoldingResponse[]>;
     /**
      * List institutional managers with their latest 13F-HR (Business plan+)
-     * Returns one row per institutional manager (13F filer), summarising their MOST RECENT 13F-HR filing — manager name/CIK, report period, total reported position value (AUM) and entry count, filed date, and accession number — ranked by AUM descending. Use this for manager-level discovery ("who are the biggest 13F filers?", "rank Apple's institutional holders") before drilling into position detail via GET /v1/holdings?manager_cik=. Amended (IsAmendment=true) filings are excluded from the 'latest' pick. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data is inherently quarter-lagged (SEC deadline is 45 days after quarter end).
+     * Returns one row per institutional manager (13F filer), summarising their MOST RECENT 13F-HR filing — manager name/CIK, report period, total reported position value (AUM) and entry count, filed date, and accession number — ranked by AUM descending. Use this for manager-level discovery ("who are the biggest 13F filers?", "rank Apple's institutional holders") before drilling into position detail via GET /v1/holdings?manager_cik=. The 'latest' pick is the newest original or RESTATEMENT 13F-HR/A for the manager's latest report period; amendments of type NEW HOLDINGS (which only add lines) are not picked, nor are amendments whose type is not recorded and which report fewer than half the entries of that base filing; the reported totals are those of the picked filing alone. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching; 13F data is inherently quarter-lagged (SEC deadline is 45 days after quarter end).
      */
     managers(params?: ListManagersParams): Promise<ManagerResponse[]>;
 }
@@ -1053,6 +928,15 @@ declare class GeneratedInsidersResource {
      */
     summary(cik: string): Promise<InsiderSummaryResponse>;
 }
+declare class GeneratedOwnershipResource {
+    protected readonly client: Form4ApiClient;
+    constructor(client: Form4ApiClient);
+    /**
+     * List Schedule 13D/13G >5% beneficial-ownership crossings (Business plan+)
+     * Returns every parsed >5% beneficial-ownership crossing event for a company — filer/reporting person, ownership percent, event date, form type (13D or 13G), and amendment status — parsed from EDGAR's structured Schedule 13D/13G cover-page XML (mandatory since the SEC's 2023 rule, compliance date 2024-12-18). SC 13D indicates an "active" investor who may seek control or influence over the issuer and must file within five business days of crossing the threshold (shortened from 10 days by the SEC's 2023 rule amendments, effective 2024-02-05); SC 13G is a lighter, less frequent filing for "passive"/qualified investors (e.g. index funds), with its own accelerated deadlines effective 2024-09-30. A single accession can carry several rows when the filing is a joint filing (e.g. a fund, its general partner, and the individual who controls both) — each reporting person has its own ownership percent. Results exclude rows superseded by a later SC 13D/A or SC 13G/A amendment; the isAmendment field on a returned row indicates whether that row is itself an amendment, not whether it has since been superseded. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.
+     */
+    schedule13dg(params?: ListSchedule13DGParams): Promise<Schedule13DGResponse[]>;
+}
 declare class GeneratedSignalsResource {
     protected readonly client: Form4ApiClient;
     constructor(client: Form4ApiClient);
@@ -1063,7 +947,7 @@ declare class GeneratedSignalsResource {
     convergence(params?: GetConvergenceSignalsParams): Promise<ConvergenceEntryDto[]>;
     /**
      * Explain why a signal fired: the insiders and trades counted, what was excluded, and the criteria (Business plan+)
-     * Reconstructs the full evidence behind one company's insider signal from GET /v1/signals: the detection criteria (5-day cluster window, 3-insider threshold, 90-day ratio window, 10b5-1 exclusion), the list of cluster buyers and sellers (each with their role and individual trades in the window), trades that were excluded from the cluster count and why (10b5-1 plan or superseded by amendment), and the raw buy/sell share totals behind the 90-day ratio. Use this to audit or debug a specific signal rather than to scan many companies (use GET /v1/signals for that). This is a LIVE reconstruction from current non-superseded data, computed on every request (no caching) — it can differ slightly from the originally stored signal if trades were amended afterward. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Returns 404 COMPANY_NOT_FOUND if the ticker isn't tracked, 404 SIGNAL_NOT_FOUND if no signal exists for the given/most-recent date, or 400 INVALID_DATE if `date` isn't YYYY-MM-DD.
+     * Use this when the question is WHY a named company's signal fired, or WHICH insiders and trades made up its cluster. It takes the ticker directly, so there is no need to call GET /v1/signals first; that endpoint is for finding which companies have signals. Reconstructs the full evidence behind one company's insider signal from GET /v1/signals: the detection criteria (5-day cluster window, 3-insider threshold, 90-day ratio window, 10b5-1 and derivative-row exclusion), the list of cluster buyers and sellers (each with their role and individual trades in the window), trades that were excluded from the cluster count and why (10b5-1 plan, derivative security, or superseded by amendment), and the raw buy/sell share totals behind the 90-day ratio. Use this to audit or debug a specific signal rather than to scan many companies (use GET /v1/signals for that). This is a LIVE reconstruction from current non-superseded data, computed on every request (no caching) — it can differ slightly from the originally stored signal if trades were amended afterward. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Returns 404 COMPANY_NOT_FOUND if the ticker isn't tracked, 404 SIGNAL_NOT_FOUND if no signal exists for the given/most-recent date, or 400 INVALID_DATE if `date` isn't YYYY-MM-DD.
      */
     explain(ticker: string, params?: ExplainSignalParams): Promise<SignalExplanation>;
     /**
@@ -1089,6 +973,238 @@ declare class GeneratedStatusResource {
      * Returns a daily breakdown of measured API uptime over a trailing 90-day window, computed from an internal heartbeat probe that runs every 5 minutes and performs the same DB-connectivity check as GET /health/ready. Each day in the `days` array reports the number of 5-minute slots expected to have elapsed (288 for a complete past day, pro-rated for the feature's first day and for today's partial day), how many of those slots recorded a healthy heartbeat, and the resulting uptime percentage for that day — plus an overall percentage (`overallPct`) across the whole window. `start` is the earliest date included: either the date of the very first heartbeat ever recorded, or 89 days before today once more than 90 days of history exist. Days before that are never returned. Use this to render an uptime history / status bar; for live corpus freshness use GET /v1/data-quality instead. Takes no parameters. Cached for ~5 minutes; no API key or plan required.
      */
     history(): Promise<UptimeHistoryResponse>;
+}
+
+interface Transaction {
+    ticker: string;
+    companyName: string;
+    insiderName: string;
+    insiderCik: string;
+    insiderTitle: string | null;
+    isDirector: boolean;
+    isOfficer: boolean;
+    is10PctOwner: boolean;
+    accessionNumber: string;
+    securityTitle: string;
+    transactionCode: string;
+    isOpenMarket: boolean;
+    is10b5Plan: boolean;
+    sharesAmount: number;
+    pricePerShare: number | null;
+    totalValue: number | null;
+    sharesOwnedAfter: number | null;
+    directIndirect: string | null;
+    isDerivative: boolean;
+    transactionDate: string;
+    periodOfReport: string;
+    /** Precise UTC SEC-acceptance instant, nullable. */
+    acceptedAt: string | null;
+    /** Public SEC document URL. */
+    documentUrl: string;
+    /** When the filing became public on EDGAR (Filing.FiledAt). */
+    filedAt: string;
+    /** Post-trade returns as FRACTIONS (0.109 = +10.9%). Null until that horizon is computed. */
+    return1d: number | null;
+    return1w: number | null;
+    return1m: number | null;
+    return3m: number | null;
+    return6m: number | null;
+    /** Set when the price or value looks implausible; null otherwise. */
+    valueQuality: "ImplausiblePrice" | "ImplausibleValue" | null;
+    /** Institutional (13F) ownership context for the company. May be absent. */
+    institutionalOwnership?: InstitutionalOwnershipDto;
+}
+interface Insider {
+    cik: string;
+    name: string;
+    isDirector: boolean;
+    isOfficer: boolean;
+    isTenPercentOwner: boolean;
+    officerTitle: string | null;
+    totalFilings: number;
+}
+interface Company {
+    cik: string;
+    name: string;
+    ticker: string | null;
+    exchange: string | null;
+    totalFilings: number;
+    activeInsiders: number;
+    sicDescription: string | null;
+    stateOfIncorporation: string | null;
+    website: string | null;
+}
+interface InsiderSignal {
+    ticker: string | null;
+    companyName: string;
+    signalDate: string;
+    buySellRatio: number;
+    isClusterBuy: boolean;
+    isClusterSell: boolean;
+    insiderCount: number;
+}
+/** One custom HTTP header sent with every webhook delivery. The value is write-only; the API never returns it. */
+interface WebhookAuthHeader {
+    /** HTTP header name, 1-64 token characters. Reserved names (Host, Content-Type, Cookie, X-Insider-*, ...) are rejected. */
+    name: string;
+    /** Header value, 1-1024 printable ASCII characters. */
+    value: string;
+}
+interface WebhookCreated {
+    subscriptionId: number;
+    url: string;
+    eventTypes: string[];
+    secret: string;
+    createdAt: string;
+    warning: string | null;
+    /** True for Free-plan subscriptions (informational; events are still delivered). */
+    isReadOnly?: boolean;
+    /** Name of the custom auth header, if one was set. The value is never returned. */
+    authHeaderName?: string | null;
+}
+interface WebhookSubscription {
+    subscriptionId: number;
+    url: string;
+    eventTypes: string[];
+    createdAt: string;
+    isActive: boolean;
+    /** True for Free-plan subscriptions (informational; events are still delivered). */
+    isReadOnly: boolean | null;
+    /** When the subscription was disabled; null while active. */
+    disabledAt: string | null;
+    /** Why it was disabled, e.g. "delivery_failures"; null while active. */
+    disabledReason: string | null;
+    /** When the most recent delivery attempt finished; null if none yet. */
+    lastAttemptAt: string | null;
+    /** When the most recent 2xx attempt finished. */
+    lastSuccessAt: string | null;
+    /** HTTP status of the most recent attempt; null when no response was received. */
+    lastStatusCode: number | null;
+    /** Why the most recent attempt failed (HTTP_4XX, HTTP_5XX, TIMEOUT, DNS, TLS, ...); null if it succeeded or none made. */
+    lastErrorClass: string | null;
+    /** Name of the custom auth header sent with deliveries; null if none. The value is never returned. */
+    authHeaderName: string | null;
+}
+interface WebhookEnableResult {
+    subscriptionId: number;
+    isActive: boolean;
+}
+interface WebhookTestResult {
+    delivered: boolean;
+    /** HTTP status from the receiver; 0 when no response was received. */
+    statusCode: number;
+    durationMs: number;
+    /** Null on a normal send; otherwise INSECURE_URL, PRIVATE_ADDRESS, UNRESOLVABLE_HOST or NETWORK_ERROR. */
+    error: string | null;
+}
+interface WebhookAuthHeaderResult {
+    subscriptionId: number;
+    authHeaderName: string;
+}
+interface WebhookEvent {
+    deliveryId: number;
+    subscriptionId: number;
+    eventType: string;
+    attemptCount: number;
+    deliveredAt: string | null;
+    nextRetryAt: string | null;
+    lastStatusCode: number | null;
+    isDead: boolean;
+    payload: string;
+}
+interface CreatedKey {
+    key: string;
+    plan: string;
+    message: string;
+}
+interface TransactionListParams {
+    /** Ticker symbol, case-insensitive. Also accepts a comma-separated list of up to 25 symbols, e.g. "AAPL,MSFT", to match any of them in one call. */
+    ticker?: string;
+    cik?: string;
+    insiderCik?: string;
+    code?: string;
+    /** Start date, inclusive (YYYY-MM-DD). Filters on transactionDate. */
+    from?: string;
+    /** End date, inclusive (YYYY-MM-DD). Filters on transactionDate. */
+    to?: string;
+    /** Inclusive start of the filed-date window (YYYY-MM-DD). Filters on Filing.FiledAt (when the filing became public), not transactionDate. */
+    filedFrom?: string;
+    /** Inclusive end of the filed-date window (YYYY-MM-DD). Filters on Filing.FiledAt. */
+    filedTo?: string;
+    exclude10b5?: boolean;
+    /** Comma-separated transaction codes to include, e.g. "P,S". */
+    codes?: string;
+    /** Comma-separated transaction codes to exclude, e.g. "A,M,F,G". */
+    excludeCodes?: string;
+    /** Include only one category: open_market | grants | derivatives | gifts | other. */
+    category?: string;
+    /** Exclude an entire category, e.g. "derivatives". */
+    excludeCategory?: string;
+    /** Drop derivative-security rows. */
+    excludeDerivative?: boolean;
+    /** Preset: open-market only, no 10b5-1 plans, no derivatives. */
+    significant?: boolean;
+    /** Minimum trade value in USD (shares × price). Available on every plan. */
+    minValue?: number;
+    /** Maximum trade value in USD. Pro plan or higher. */
+    maxValue?: number;
+    /** Minimum number of shares. Pro plan or higher. */
+    minShares?: number;
+    /** Maximum number of shares. Pro plan or higher. */
+    maxShares?: number;
+    /** Pro+ only. Minimum post-trade return as a FRACTION (0.2 = +20%). Rows with no computed return for that horizon are excluded. */
+    minReturn1d?: number;
+    maxReturn1d?: number;
+    minReturn1w?: number;
+    maxReturn1w?: number;
+    minReturn1m?: number;
+    maxReturn1m?: number;
+    minReturn3m?: number;
+    maxReturn3m?: number;
+    minReturn6m?: number;
+    maxReturn6m?: number;
+    /** Pro+ only. true: only rows with all five return horizons computed; false: only rows missing at least one. */
+    hasReturns?: boolean;
+    /** Trailing quarter-over-quarter trend in institutional (13F) ownership of the company. */
+    instOwnershipTrend?: "increasing" | "decreasing" | "stable";
+    /** Filter by the insider's role. */
+    role?: "officer" | "director" | "ten_percent_owner";
+    /** Result ordering: "date" (default, newest transaction first) or "value" (largest first, applied before pagination). */
+    sort?: "date" | "value";
+    page?: number;
+    /** Results per page (canonical). The backend also accepts a `limit` alias, but `perPage` is the name this SDK sends. */
+    perPage?: number;
+}
+interface InsiderTransactionParams {
+    from?: string;
+    to?: string;
+    page?: number;
+    perPage?: number;
+}
+interface SignalListParams {
+    ticker?: string;
+    clusterBuy?: boolean;
+    clusterSell?: boolean;
+    page?: number;
+    perPage?: number;
+}
+interface WebhookEventParams {
+    since?: string;
+}
+interface SearchParams {
+    /** Maximum number of results per section (companies, insiders), applied independently to each. Defaults to 8, clamped to 1-20. */
+    limit?: number;
+}
+interface PaginateOptions {
+    /**
+     * Stop after yielding this many pages, even if more data is available.
+     * Default: unbounded — `paginate()` keeps requesting pages until the API
+     * returns a short/empty page or (since the backend's 2026-08-01 plan-gated
+     * pagination depth) rejects the next page with a `PaginationLimitError`.
+     * Set this to give a script a deterministic stopping point without relying
+     * on hitting the plan's depth limit.
+     */
+    maxPages?: number;
 }
 
 declare class CompaniesResource extends GeneratedCompaniesResource {
@@ -1138,9 +1254,30 @@ declare class TransactionsResource {
 declare class WebhooksResource {
     private readonly client;
     constructor(client: Form4ApiClient);
-    create(url: string, eventTypes: string[]): Promise<WebhookCreated>;
+    /**
+     * Registers a webhook. `eventTypes` are exact names: TransactionFiled,
+     * ClusterBuy, ClusterSell, CongressTradeFiled (Starter+), ConvergenceSignal
+     * (Pro+). Pass `authHeader` to have one custom header (for example
+     * `Authorization: Bearer ...`) sent with every delivery. The signing secret
+     * in the response is shown once.
+     */
+    create(url: string, eventTypes: string[], options?: {
+        authHeader?: WebhookAuthHeader;
+    }): Promise<WebhookCreated>;
     list(): Promise<WebhookSubscription[]>;
     delete(subscriptionId: number): Promise<void>;
+    /** Re-enables a subscription the system auto-disabled after delivery failures. */
+    enable(subscriptionId: number): Promise<WebhookEnableResult>;
+    /**
+     * Sends one synthetic delivery to the subscription's URL now (payload has
+     * `"test": true`). A failed send is reported in the result (`delivered:
+     * false`, `error`), not thrown.
+     */
+    test(subscriptionId: number): Promise<WebhookTestResult>;
+    /** Sets or replaces the custom auth header sent with deliveries. The value is write-only. */
+    setAuthHeader(subscriptionId: number, header: WebhookAuthHeader): Promise<WebhookAuthHeaderResult>;
+    /** Removes the custom auth header. Idempotent; resolves with no value (204). */
+    deleteAuthHeader(subscriptionId: number): Promise<void>;
     events(params?: WebhookEventParams): Promise<WebhookEvent[]>;
 }
 
@@ -1166,6 +1303,7 @@ declare class Form4ApiClient {
     readonly filings: GeneratedFilingsResource;
     readonly form144: GeneratedForm144Resource;
     readonly holdings: GeneratedHoldingsResource;
+    readonly ownership: GeneratedOwnershipResource;
     readonly stats: GeneratedStatsResource;
     readonly status: GeneratedStatusResource;
     readonly dataQuality: GeneratedDataQualityResource;
@@ -1188,6 +1326,7 @@ declare class Form4ApiClient {
     search(q: string, params?: SearchParams): Promise<SearchResponse>;
     _get<T>(path: string, params?: Record<string, string>): Promise<T>;
     _post<T>(path: string, body?: unknown): Promise<T>;
+    _put<T>(path: string, body?: unknown): Promise<T>;
     _delete(path: string): Promise<void>;
     private _fetch;
     private _parse;
@@ -1242,4 +1381,24 @@ declare class PaginationLimitError extends PlanError {
     constructor(message: string, pagesYielded: number, cause: unknown);
 }
 
-export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ErrorDetail, type ErrorResponse, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ManagerResponse, NotFoundError, type PaginateOptions, PaginationLimitError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type Schedule13DGResponse, type ScorecardTradeRef, type SearchCompanyResult, type SearchInsiderResult, type SearchParams, type SearchResponse, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookCreated, type WebhookEvent, type WebhookEventParams, type WebhookSubscription };
+/**
+ * Verifies the `X-Insider-Signature` header on a webhook delivery.
+ *
+ * The header is `sha256=<lowercase hex HMAC-SHA256(secret, raw body)>`. Pass
+ * the RAW request body exactly as received (string or bytes), not a
+ * re-serialised JSON object, or the signature will not match. Resolves to
+ * `false` for a missing or malformed header. The comparison is done by
+ * `SubtleCrypto.verify`, which is constant-time.
+ *
+ * Async because it uses Web Crypto, so it also works in browsers and edge
+ * runtimes. In Node it works on 20+ directly and on 18 via a `node:crypto`
+ * fallback. Always `await` it: a bare `if (verifyWebhook(...))` is truthy.
+ *
+ * ```ts
+ * const ok = await verifyWebhook(rawBody, req.headers["x-insider-signature"], process.env.WEBHOOK_SECRET!);
+ * if (!ok) return res.status(401).end();
+ * ```
+ */
+declare function verifyWebhook(rawBody: string | Uint8Array, signatureHeader: string | null | undefined, secret: string): Promise<boolean>;
+
+export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ErrorDetail, type ErrorResponse, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedOwnershipResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ListSchedule13DGParams, type ManagerResponse, NotFoundError, type PaginateOptions, PaginationLimitError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type Schedule13DGResponse, type ScorecardTradeRef, type SearchCompanyResult, type SearchInsiderResult, type SearchParams, type SearchResponse, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookAuthHeader, type WebhookAuthHeaderRequest, type WebhookAuthHeaderRequest2, type WebhookAuthHeaderResult, type WebhookCreated, type WebhookEnableResult, type WebhookEvent, type WebhookEventParams, type WebhookSubscription, type WebhookTestResult, verifyWebhook };

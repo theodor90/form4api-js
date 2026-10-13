@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## 1.8.0 — 2026-10-13
+
+- **Webhooks.** New methods: `webhooks.enable(id)` (re-enable a subscription the
+  system auto-disabled), `webhooks.test(id)` (send one synthetic delivery; a
+  failed send comes back as `delivered: false` with an `error`, it does not
+  throw), `webhooks.setAuthHeader(id, { name, value })` and
+  `webhooks.deleteAuthHeader(id)` (resolves with no value on 204).
+  `webhooks.create(url, eventTypes, { authHeader })` takes an optional custom
+  header that is sent with every delivery. `WebhookSubscription` gains
+  `isReadOnly`, `disabledAt`, `disabledReason`, `lastAttemptAt`,
+  `lastSuccessAt`, `lastStatusCode`, `lastErrorClass` and `authHeaderName`, all
+  nullable. The auth header value is write-only and never returned.
+- **`verifyWebhook(rawBody, signatureHeader, secret)`.** Checks the
+  `X-Insider-Signature: sha256=<hex>` header on a delivery, matching the Python
+  SDK's `verify_webhook`. It is async (Web Crypto, constant-time compare), so
+  `await` it. It runs in Node, browsers and edge runtimes.
+- **Schedule 13D/13G.** New `client.ownership.schedule13dg()` for
+  `GET /v1/ownership/13d-13g` (Business plan). The endpoint existed in the API
+  but had no method because the `Ownership` tag was missing from the generator.
+- **`transactions.list()` / `paginate()` filters.** Added `minReturn1d/1w/1m/3m/6m`,
+  `maxReturn1d/1w/1m/3m/6m`, `hasReturns` (all Pro+), `instOwnershipTrend`
+  (`"increasing" | "decreasing" | "stable"`), `role`
+  (`"officer" | "director" | "ten_percent_owner"`) and `sort`
+  (`"date" | "value"`). Returns are fractions (0.2 = +20%).
+- **`Transaction` type** now includes `filedAt`, `return1d`, `return1w`,
+  `return1m`, `return3m`, `return6m`, `valueQuality` and
+  `institutionalOwnership`, which the API already returned.
+- Fixed the `minValue` doc comment: it is available on every plan, not Pro+.
+  `maxValue`, `minShares`, `maxShares` and the return filters are Pro+.
+- Added `"engines": { "node": ">=18" }` to `package.json` to match the README.
+- Regenerated `src/generated.ts` from the live spec (new `ListSchedule13DGParams`,
+  `WebhookAuthHeaderRequest`, and `filedAt` on `TransactionResponse`; some
+  endpoint descriptions updated).
+
 ## 1.7.0 — 2026-10-05
 
 - **Congress date quality (backend insiderapi #330/#331).** Regenerated

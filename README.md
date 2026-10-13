@@ -6,7 +6,7 @@ TypeScript SDK for [Form4API](https://www.form4api.com) — real-time SEC Form 4
 [![npm downloads](https://img.shields.io/npm/dm/form4api.svg)](https://www.npmjs.com/package/form4api)
 [![license](https://img.shields.io/npm/l/form4api.svg)](https://github.com/theodor90/form4api-js/blob/main/LICENSE)
 
-Works in Node.js 18+ and any modern browser via native `fetch`. Fully typed.
+Works in Node.js 18+ and any modern browser via native `fetch`. Fully typed. `verifyWebhook` uses Web Crypto, so it runs in Node, browsers and edge runtimes too.
 
 ## Installation
 
@@ -62,10 +62,17 @@ const txns = await client.transactions.list({
   excludeCategory?: string;  // drop a whole category, e.g. "derivatives"
   excludeDerivative?: boolean; // drop derivative-security rows
   significant?: boolean;     // preset: open-market, no 10b5-1, no derivatives
-  minValue?: number;         // USD trade value (shares x price) — Pro+
+  minValue?: number;         // USD trade value (shares x price) — every plan
   maxValue?: number;         // Pro+
   minShares?: number;        // Pro+
   maxShares?: number;        // Pro+
+  // Post-trade return filters — Pro+ (403 on Free/Starter). Returns are
+  // FRACTIONS: 0.2 = +20%. Rows with no computed return for the horizon are excluded.
+  minReturn1d?: number;  maxReturn1d?: number;   // also 1w, 1m, 3m, 6m
+  hasReturns?: boolean;      // Pro+: true = all five horizons computed
+  instOwnershipTrend?: "increasing" | "decreasing" | "stable"; // 13F ownership trend
+  role?: "officer" | "director" | "ten_percent_owner";
+  sort?: "date" | "value";   // default "date"; "value" = largest trade first
   page?: number;
   perPage?: number;       // max 100 for /v1/transactions (500 for other list endpoints)
 });
@@ -111,6 +118,10 @@ try {
 | `isDerivative` | `boolean` | Derivative security flag |
 | `transactionDate` | `string` | ISO datetime |
 | `periodOfReport` | `string` | ISO datetime |
+| `filedAt` | `string` | When the filing became public on EDGAR |
+| `return1d`, `return1w`, `return1m`, `return3m`, `return6m` | `number \| null` | Post-trade returns as fractions (0.109 = +10.9%); `null` until computed |
+| `valueQuality` | `"ImplausiblePrice" \| "ImplausibleValue" \| null` | Set when the price or value looks implausible |
+| `institutionalOwnership` | `InstitutionalOwnershipDto \| undefined` | 13F ownership context for the company |
 
 ### `client.insiders`
 
@@ -149,13 +160,52 @@ for await (const page of client.signals.paginate({ clusterBuy: true }, { maxPage
 ### `client.webhooks`
 
 ```typescript
-const sub = await client.webhooks.create(url: string, eventTypes: string[]);
+const sub = await client.webhooks.create(url, eventTypes, {
+  authHeader?: { name: string; value: string },  // sent with every delivery
+});
 const subs = await client.webhooks.list();
 await client.webhooks.delete(subscriptionId: number);
 const events = await client.webhooks.events({ since?: string });
+
+await client.webhooks.enable(id);             // { subscriptionId, isActive } - undo an auto-disable
+await client.webhooks.test(id);               // { delivered, statusCode, durationMs, error }
+await client.webhooks.setAuthHeader(id, { name, value });  // { subscriptionId, authHeaderName }
+await client.webhooks.deleteAuthHeader(id);   // 204, resolves with no value
 ```
 
-**Event types:** `"TransactionFiled"`, `"ClusterBuy"`, `"ClusterSell"`
+**Event types** (exact names, case-insensitive on input):
+
+| Event | Plan |
+|---|---|
+| `"TransactionFiled"` | Free |
+| `"ClusterBuy"` | Free |
+| `"ClusterSell"` | Free |
+| `"CongressTradeFiled"` | Starter+ |
+| `"ConvergenceSignal"` | Pro+ |
+
+Payloads are compact PascalCase references with no envelope (the body is the
+bare object), for example `{ FilingId, AccessionNumber }` for
+`TransactionFiled`. The event name is in the `X-Event-Type` header, not the
+body. `CongressTradeFiled` and `ConvergenceSignal` carry the full event body.
+
+`list()` returns delivery health for each subscription: `isActive`,
+`disabledAt`/`disabledReason` (`"delivery_failures"` when the system
+auto-disabled it; re-enable with `enable(id)`), `lastAttemptAt`,
+`lastSuccessAt`, `lastStatusCode`, `lastErrorClass`, `isReadOnly` and
+`authHeaderName`. All of these are nullable. The auth header value is
+write-only and never returned.
+
+**Verifying deliveries.** Each delivery carries
+`X-Insider-Signature: sha256=<hex HMAC-SHA256(secret, raw body)>`. Use the raw
+request body, not re-serialised JSON. `verifyWebhook` is async (Web Crypto), so
+`await` it:
+
+```typescript
+import { verifyWebhook } from "form4api";
+
+const ok = await verifyWebhook(rawBody, req.headers["x-insider-signature"], process.env.WEBHOOK_SECRET!);
+if (!ok) return res.status(401).end();
+```
 
 ### `client.search()`
 
@@ -178,8 +228,11 @@ insider's `ticker` is a ticker associated with that insider and may be
 
 ## Full resource surface
 
-Every plan-gated endpoint the API exposes has a typed method here. Resources
-generated from the OpenAPI spec sit alongside the hand-written ones above:
+Every endpoint that returns typed JSON has a method here, including every
+plan-gated one. The exceptions are the CSV exports, the account/billing
+bootstrap calls and the usage endpoints, which have no typed response and are
+not wrapped. Resources generated from the OpenAPI spec sit alongside the
+hand-written ones above:
 
 | Resource | Methods |
 |---|---|
@@ -190,11 +243,12 @@ generated from the OpenAPI spec sit alongside the hand-written ones above:
 | `client.congress` | `.trades()`, `.politicians()` *(Pro)*, `.politician(idOrSlug)` *(Pro)*, `.ticker(ticker)` *(Pro)* |
 | `client.form144` | `.list()` — Business |
 | `client.holdings` | `.list()`, `.managers()` — Business |
+| `client.ownership` | `.schedule13dg()` — Business (Schedule 13D/13G >5% ownership crossings; filters `ticker`, `form_type`, `is_amendment`, `page`, `per_page`) |
 | `client.filings` | `.list()`, `.recent()`, `.get(accessionNumber)` |
 | `client.stats` | `.get()` — public, no key required |
 | `client.dataQuality` | `.get()` — public, no key required |
 | `client.status` | `.history()` |
-| `client.webhooks` | `.create()`, `.list()`, `.delete(id)`, `.events()` |
+| `client.webhooks` | `.create()`, `.list()`, `.delete(id)`, `.events()`, `.enable(id)`, `.test(id)`, `.setAuthHeader(id, header)`, `.deleteAuthHeader(id)` |
 | `client.search(q, { limit? })` | Name search for companies and insiders. Free tier |
 
 **Congress date quality.** Each congress trade (and convergence leg) has
@@ -212,9 +266,10 @@ for (const t of trades) {
 }
 ```
 
-Post-trade returns (1d/1w/1m/3m/6m) come back on transaction rows, and the
-`minReturn*` screening filters are parameters on `client.transactions.list()`
-*(returns visible free; screening Pro)*.
+Post-trade returns (1d/1w/1m/3m/6m) come back on transaction rows as
+fractions, and the `minReturn*` / `maxReturn*` / `hasReturns` screening filters
+are parameters on `client.transactions.list()` and `.paginate()`
+*(returns visible on every plan; the filters are Pro+)*.
 
 Calling an endpoint your key isn't entitled to throws `PlanError` (HTTP 402)
 carrying `requiredPlan`, `currentPlan`, and `upgradeUrl` rather than failing

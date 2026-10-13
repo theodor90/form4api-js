@@ -66,6 +66,7 @@ const TAG_TO_RESOURCE = {
   'Form 144': 'form144',
   'Insiders': 'insiders',
   'Institutional Holdings (13F-HR)': 'holdings',
+  'Ownership': 'ownership',
   'Signals & Sentiment': 'signals',
   'Stats': 'stats',
   'Status': 'status',
@@ -108,6 +109,7 @@ const METHOD_NAME_OVERRIDES = {
   GetConvergenceSignals: 'convergence',
   GetPublicStats: 'get',
   GetStatusHistory: 'history',
+  ListSchedule13DG: 'schedule13dg',
 }
 
 const RESERVED = new Set(['default', 'function', 'class', 'new', 'delete'])
