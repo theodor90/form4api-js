@@ -136,6 +136,11 @@ export class Form4ApiClient {
     return this._parse<T>(res);
   }
 
+  async _patch<T>(path: string, body?: unknown): Promise<T> {
+    const res = await this._fetch("PATCH", this.baseUrl + path, body);
+    return this._parse<T>(res);
+  }
+
   async _delete(path: string): Promise<void> {
     const res = await this._fetch("DELETE", this.baseUrl + path);
     if (!res.ok && res.status !== 204) {

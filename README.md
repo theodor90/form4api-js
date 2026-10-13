@@ -167,6 +167,7 @@ const subs = await client.webhooks.list();
 await client.webhooks.delete(subscriptionId: number);
 const events = await client.webhooks.events({ since?: string });
 
+await client.webhooks.update(id, url);        // change the URL; returns the WebhookSubscription incl. urlWarning
 await client.webhooks.enable(id);             // { subscriptionId, isActive } - undo an auto-disable
 await client.webhooks.test(id);               // { delivered, statusCode, durationMs, error }
 await client.webhooks.setAuthHeader(id, { name, value });  // { subscriptionId, authHeaderName }
@@ -194,6 +195,23 @@ auto-disabled it; re-enable with `enable(id)`), `lastAttemptAt`,
 `lastSuccessAt`, `lastStatusCode`, `lastErrorClass`, `isReadOnly` and
 `authHeaderName`. All of these are nullable. The auth header value is
 write-only and never returned.
+
+**Moving a webhook to a new URL.** `update(id, url)` changes the delivery URL
+and keeps the id, secret, event types and auth header. It does not re-enable a
+subscription the system disabled, so call `enable(id)` afterwards if needed.
+The `last*` health fields come back `null` because they described the old URL.
+
+```typescript
+// Started on a tunnel, now moving to a stable endpoint
+const moved = await client.webhooks.update(sub.subscriptionId, "https://example.com/hooks/form4api");
+if (!moved.isActive) await client.webhooks.enable(moved.subscriptionId);
+```
+
+**`urlWarning`.** `create()`, `update()` and each `list()` item carry
+`urlWarning`: a string when the URL's host is a temporary tunnel or test host
+(trycloudflare, ngrok, webhook.site, loca.lt, serveo), otherwise `null`. It is a
+warning only; the subscription is saved either way, and deliveries stop when the
+tunnel closes. URLs over 500 characters are rejected with 400 `INVALID_URL`.
 
 **Verifying deliveries.** Each delivery carries
 `X-Insider-Signature: sha256=<hex HMAC-SHA256(secret, raw body)>`. Use the raw
@@ -248,7 +266,7 @@ hand-written ones above:
 | `client.stats` | `.get()` — public, no key required |
 | `client.dataQuality` | `.get()` — public, no key required |
 | `client.status` | `.history()` |
-| `client.webhooks` | `.create()`, `.list()`, `.delete(id)`, `.events()`, `.enable(id)`, `.test(id)`, `.setAuthHeader(id, header)`, `.deleteAuthHeader(id)` |
+| `client.webhooks` | `.create()`, `.list()`, `.update(id, url)`, `.delete(id)`, `.events()`, `.enable(id)`, `.test(id)`, `.setAuthHeader(id, header)`, `.deleteAuthHeader(id)` |
 | `client.search(q, { limit? })` | Name search for companies and insiders. Free tier |
 
 **Congress date quality.** Each congress trade (and convergence leg) has
