@@ -66,6 +66,23 @@ export interface ClusterTradeEntry {
   value: number | null;
 }
 
+export interface CompanyPeerResponse {
+  ticker: string;
+  name: string;
+  cik: string;
+  sicCode: string;
+  filings12m: number;
+  matchLevel: string;
+}
+
+export interface CompanyPeersResponse {
+  ticker: string;
+  sicCode: string | null;
+  sicDescription: string | null;
+  basis: string;
+  peers: CompanyPeerResponse[];
+}
+
 export interface CompanyResponse {
   cik: string;
   name: string;
@@ -765,6 +782,11 @@ export interface ListCompaniesParams {
   limit?: number;
 }
 
+export interface GetCompanyPeersParams {
+  /** Maximum number of peers to return. Defaults to 10, clamped to 1-25. */
+  limit?: number;
+}
+
 export interface ListFilingsParams {
   /** Company ticker symbol, case-insensitive (e.g. "AAPL"). */
   ticker?: string;
@@ -890,6 +912,14 @@ export class GeneratedCompaniesResource {
    */
   async list(params?: ListCompaniesParams): Promise<CompanyResponse[]> {
     return this.client._get<CompanyResponse[]>(`/v1/companies`, toQuery(params));
+  }
+
+  /**
+   * Peer companies in the same SIC industry, ranked by recent Form 4 activity
+   * Returns other tracked companies in the same industry as the given ticker, for "similar companies" links. Candidates share the company's 4-digit SIC code (matchLevel "sic4"); when too few of those have Form 4 filings in the last 12 months to fill `limit`, companies sharing only the 2-digit SIC prefix (matchLevel "sic2") are added. Active peers (at least one Form 4 filing dated in the trailing 12 months, `filings12m`) come first, sic4 before sic2, each tier ordered by `filings12m` descending then ticker ascending; peers with no filings in the window are appended last only if there is still room. The company itself is excluded, as are companies without a ticker or without a usable SIC code. `basis` is "sic4", "sic2" or "mixed" according to the match levels present in `peers`, and "none" when `peers` is empty (including when the company has no SIC code, which is 200 with an empty list, not 404). `limit` defaults to 10 and is clamped to 1-25. Returns 404 NOT_FOUND if the ticker isn't tracked. Not plan-gated. Results are cached for a few hours.
+   */
+  async peers(ticker: string, params?: GetCompanyPeersParams): Promise<CompanyPeersResponse> {
+    return this.client._get<CompanyPeersResponse>(`/v1/companies/${encodeURIComponent(ticker)}/peers`, toQuery(params));
   }
 }
 

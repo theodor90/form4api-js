@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 1.10.0 — 2026-10-14
+
+- **`companies.peers(ticker, { limit })`.** Similar companies in the same SIC
+  industry (`GET /v1/companies/{ticker}/peers`), ranked by Form 4 filings in
+  the trailing 12 months. Same 4-digit SIC first, topped up from the 2-digit
+  prefix; inactive peers come last; the company itself is excluded. `limit`
+  defaults to 10 and is clamped to 1-25 by the API. Returns
+  `CompanyPeersResponse` (`basis`: `sic4`, `sic2`, `mixed` or `none`) with
+  `CompanyPeerResponse` rows (`ticker`, `name`, `cik`, `sicCode`, `filings12m`,
+  `matchLevel`). A company with no SIC code returns an empty list; an unknown
+  ticker throws `NotFoundError`. Available on every plan. Both types are
+  exported.
+
 ## 1.9.0 — 2026-10-13
 
 - **`webhooks.update(id, url)`.** Changes the delivery URL of a webhook

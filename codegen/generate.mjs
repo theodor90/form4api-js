@@ -90,6 +90,7 @@ const TAG_TO_RESOURCE = {
 // contract in someone's build.
 const METHOD_NAME_OVERRIDES = {
   ListCompanies: 'list',
+  GetCompanyPeers: 'peers',
   ListCongressTrades: 'trades',
   ListCongressPoliticians: 'politicians',
   GetCongressPolitician: 'politician',
