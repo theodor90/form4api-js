@@ -38,6 +38,21 @@ interface ClusterTradeEntry {
     pricePerShare: number | null;
     value: number | null;
 }
+interface CompanyPeerResponse {
+    ticker: string;
+    name: string;
+    cik: string;
+    sicCode: string;
+    filings12m: number;
+    matchLevel: string;
+}
+interface CompanyPeersResponse {
+    ticker: string;
+    sicCode: string | null;
+    sicDescription: string | null;
+    basis: string;
+    peers: CompanyPeerResponse[];
+}
 interface CompanyResponse {
     cik: string;
     name: string;
@@ -668,6 +683,10 @@ interface ListCompaniesParams {
     /** Maximum number of companies to return. Defaults to 50, maximum 50. */
     limit?: number;
 }
+interface GetCompanyPeersParams {
+    /** Maximum number of peers to return. Defaults to 10, clamped to 1-25. */
+    limit?: number;
+}
 interface ListFilingsParams {
     /** Company ticker symbol, case-insensitive (e.g. "AAPL"). */
     ticker?: string;
@@ -782,6 +801,11 @@ declare class GeneratedCompaniesResource {
      * Returns a single page of companies that have a tracked public ticker — for browsing or building a company picker, not for searching by name or CIK (there is no full-text search here; use GET /v1/companies/{ticker} to fetch one company by its exact ticker). Each entry includes the company's CIK, name, ticker, exchange, total filing count, and distinct insider count. There is no page parameter — this endpoint always returns the top `limit` companies by the chosen sort order. Not plan-gated.
      */
     list(params?: ListCompaniesParams): Promise<CompanyResponse[]>;
+    /**
+     * Peer companies in the same SIC industry, ranked by recent Form 4 activity
+     * Returns other tracked companies in the same industry as the given ticker, for "similar companies" links. Candidates share the company's 4-digit SIC code (matchLevel "sic4"); when too few of those have Form 4 filings in the last 12 months to fill `limit`, companies sharing only the 2-digit SIC prefix (matchLevel "sic2") are added. Active peers (at least one Form 4 filing dated in the trailing 12 months, `filings12m`) come first, sic4 before sic2, each tier ordered by `filings12m` descending then ticker ascending; peers with no filings in the window are appended last only if there is still room. The company itself is excluded, as are companies without a ticker or without a usable SIC code. `basis` is "sic4", "sic2" or "mixed" according to the match levels present in `peers`, and "none" when `peers` is empty (including when the company has no SIC code, which is 200 with an empty list, not 404). `limit` defaults to 10 and is clamped to 1-25. Returns 404 NOT_FOUND if the ticker isn't tracked. Not plan-gated. Results are cached for a few hours.
+     */
+    peers(ticker: string, params?: GetCompanyPeersParams): Promise<CompanyPeersResponse>;
 }
 declare class GeneratedCongressResource {
     protected readonly client: Form4ApiClient;
@@ -1421,4 +1445,4 @@ declare class PaginationLimitError extends PlanError {
  */
 declare function verifyWebhook(rawBody: string | Uint8Array, signatureHeader: string | null | undefined, secret: string): Promise<boolean>;
 
-export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ErrorDetail, type ErrorResponse, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedOwnershipResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ListSchedule13DGParams, type ManagerResponse, NotFoundError, type PaginateOptions, PaginationLimitError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type Schedule13DGResponse, type ScorecardTradeRef, type SearchCompanyResult, type SearchInsiderResult, type SearchParams, type SearchResponse, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UpdateWebhookRequest, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookAuthHeader, type WebhookAuthHeaderRequest, type WebhookAuthHeaderRequest2, type WebhookAuthHeaderResult, type WebhookCreated, type WebhookEnableResult, type WebhookEvent, type WebhookEventParams, type WebhookSubscription, type WebhookTestResult, verifyWebhook };
+export { type AmendmentMetrics, AuthError, type ClusterInsiderEntry, type ClusterTradeEntry, type Company, type CompanyPeerResponse, type CompanyPeersResponse, type CompanyResponse, type CongressPoliticianProfileResponse, type CongressPoliticianRefDto, type CongressPoliticianRollupDto, type CongressTickerCountDto, type CongressTickerPoliticianEntryDto, type CongressTickerRollupResponse, type CongressTradeDto, type ConvergenceCongressLegDto, type ConvergenceEntryDto, type ConvergenceInsiderSideDto, type CorpusStats, type CoverageMetrics, type CreateKeyRequest, type CreateWebhookRequest, type CreatedKey, type DataQualityResponse, type DirectoryEntryResponse, type DirectoryLetter, type ErrorDetail, type ErrorResponse, type ExcludedTradeEntry, type ExplainSignalParams, type FilingResponse, type Form144Response, Form4ApiClient, type Form4ApiClientOptions, type Form4HealthCheck, type FreshnessMetrics, GeneratedCompaniesResource, GeneratedCongressResource, GeneratedDataQualityResource, GeneratedFilingsResource, GeneratedForm144Resource, GeneratedHoldingsResource, GeneratedInsidersResource, GeneratedOwnershipResource, GeneratedSignalsResource, GeneratedStatsResource, GeneratedStatusResource, type GetCompanyPeersParams, type GetCongressPoliticianParams, type GetCongressTickerRollupParams, type GetConvergenceSignalsParams, type GetInsiderDirectoryParams, type GetInsiderLeaderboardParams, type GetRecentFilingsParams, type GetSentimentParams, type HoldingResponse, type IngestionHealthResponse, type IngestionLatencyStats, type Insider, type Insider10b5Split, InsiderApiError, type InsiderCareer, type InsiderCompanyEntry, type InsiderDirectoryResponse, type InsiderLeaderboardResponse, type InsiderResponse, type InsiderReturnsSummary, type InsiderScorecardResponse, type InsiderSignal, type InsiderSummaryResponse, type InsiderTransactionParams, type InsiderTxCodeBreakdown, type InstitutionalOwnershipDto, type LeaderboardEntry, type ListCompaniesParams, type ListCongressPoliticiansParams, type ListCongressTradesParams, type ListFilingsParams, type ListForm144Params, type ListHoldingsParams, type ListInsidersParams, type ListManagersParams, type ListSchedule13DGParams, type ManagerResponse, NotFoundError, type PaginateOptions, PaginationLimitError, PlanError, type PricesHealthCheck, type QueueHealthCheck, RateLimitError, type RatioBasis, type ReturnsCoverage, type Schedule13DGResponse, type ScorecardTradeRef, type SearchCompanyResult, type SearchInsiderResult, type SearchParams, type SearchResponse, type SentimentMonthEntry, type SentimentResponse, type SignalCriteria, type SignalExplanation, type SignalListParams, type SignalResponse, type TestimonialSubmitRequest, type TopHolderDto, type Transaction, type TransactionListParams, type TransactionResponse, type UpdateWebhookRequest, type UptimeDayBucket, type UptimeHistoryResponse, type WaitlistRequest, type WebhookAuthHeader, type WebhookAuthHeaderRequest, type WebhookAuthHeaderRequest2, type WebhookAuthHeaderResult, type WebhookCreated, type WebhookEnableResult, type WebhookEvent, type WebhookEventParams, type WebhookSubscription, type WebhookTestResult, verifyWebhook };

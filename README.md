@@ -135,7 +135,10 @@ const txns = await client.insiders.transactions(cik: string, { from?, to?, page?
 ```typescript
 const company = await client.companies.get(ticker: string);
 const insiders = await client.companies.insiders(ticker: string);
+const peers = await client.companies.peers(ticker: string, { limit?: number });
 ```
+
+**`peers`** returns similar companies in the same SIC industry, ranked by Form 4 filings in the last 12 months (`limit` defaults to 10, clamped to 1-25). Result: `{ ticker, sicCode, sicDescription, basis, peers: [{ ticker, name, cik, sicCode, filings12m, matchLevel }] }`. `basis` is `"sic4"`, `"sic2"`, `"mixed"` or `"none"`; a company with no SIC code gets an empty `peers` list, not an error. An unknown ticker throws `NotFoundError`. Free plan.
 
 **`Company` fields:** `cik`, `name`, `ticker`, `exchange`, `totalFilings`, `activeInsiders`, `sicDescription`, `stateOfIncorporation`, `website`
 
@@ -256,7 +259,7 @@ hand-written ones above:
 |---|---|
 | `client.transactions` | `.list()`, `.paginate()` |
 | `client.insiders` | `.get(cik)`, `.list()`, `.directory()`, `.transactions(cik)`, `.summary(cik)` *(Pro)*, `.scorecard(cik)` *(Pro)*, `.leaderboard()` *(Business)* |
-| `client.companies` | `.get(ticker)`, `.insiders(ticker)`, `.list()` |
+| `client.companies` | `.get(ticker)`, `.insiders(ticker)`, `.peers(ticker)`, `.list()` |
 | `client.signals` | `.list()`, `.paginate()`, `.explain(ticker)`, `.sentiment(ticker)` — Business; `.convergence()` — Pro |
 | `client.congress` | `.trades()`, `.politicians()` *(Pro)*, `.politician(idOrSlug)` *(Pro)*, `.ticker(ticker)` *(Pro)* |
 | `client.form144` | `.list()` — Business |
