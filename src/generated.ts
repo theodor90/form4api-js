@@ -36,9 +36,9 @@ export interface ErrorDetail {
   currentPlan?: string;
   /** Machine-readable class of miss on a ticker 404: `punctuation_variant` (an alternate spelling was verified to exist) or `unrecognized` (the symbol is absent — this does not assert why). Omitted when not applicable. */
   reason?: string;
-  /** On a 404 for an unmatched `/v1/*` or `/api/*` path: the real path (with your query string) when the request matches a known alias or a registered route under a different prefix. Omitted when not applicable. */
+  /** A corrected request to try. On a 404 for an unmatched `/v1/*` or `/api/*` path: the real path (with your query string), when the request matches a known alias or a registered route. On a 400 `UNKNOWN_PARAMETER`: your own path and query string with each misnamed parameter replaced by the one it most likely meant, present only when every unknown parameter had a suggestion. Omitted when not applicable. */
   didYouMean?: string;
-  /** On a 404 for an unmatched `/v1/*` or `/api/*` path: link to the API documentation. Omitted when not applicable. */
+  /** Link to the relevant documentation. Present on a 404 for an unmatched `/v1/*` or `/api/*` path, on a 400 `UNKNOWN_PARAMETER`, and on a 429 from the per-key quota (where it points at webhooks, the alternative to polling). Omitted when not applicable. */
   docsUrl?: string;
 }
 
@@ -455,6 +455,7 @@ export interface InsiderTxCodeBreakdown {
   a: number;
   g: number;
   other: number;
+  sWithValue?: number;
 }
 
 export interface InstitutionalOwnershipDto {
@@ -1107,8 +1108,12 @@ as FRACTIONS — 0.05 means +5%, -0.10 means -10%.
    * Get aggregate career summary for an insider (Pro plan+)
    * Aggregate career roll-up for a single insider: first/last transaction dates, total transactions,
 total bought/sold/net USD, transaction-code breakdown (P/S/F/M/A/G/other counts), the top 10
-companies traded (by activity), the 10b5-1 vs discretionary split, and average post-trade returns
-across discretionary open-market (non-10b5-1) buy/sell trades. Use this for a one-call career
+companies traded (by activity), the 10b5-1 vs discretionary split, and post-trade returns
+across discretionary open-market (non-10b5-1) buy/sell trades. The S count includes every
+sale; SWithValue counts only the sales that contribute to TotalSoldUsd (trusted value, price
+and shares above zero), so S minus SWithValue is the number of sales the dollar total omits.
+Despite their AvgReturn names, the return fields are the MEDIAN across those trades, and
+trades with an entry close below $0.01 carry no return, and a horizon is null when a one-day close change of 10x or more (typically a split) falls inside its window. Use this for a one-call career
 overview rather than paging through GET /v1/insiders/{cik}/transactions yourself; for a scored
 hit-rate track record on buys specifically, use GET /v1/insiders/{cik}/scorecard instead.
 Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). Returns 404 NOT_FOUND if the CIK
