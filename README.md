@@ -120,7 +120,7 @@ try {
 | `periodOfReport` | `string` | ISO datetime |
 | `filedAt` | `string` | When the filing became public on EDGAR |
 | `return1d`, `return1w`, `return1m`, `return3m`, `return6m` | `number \| null` | Post-trade returns as fractions (0.109 = +10.9%); `null` until computed |
-| `valueQuality` | `"ImplausiblePrice" \| "ImplausibleValue" \| null` | Set when the price or value looks implausible |
+| `valueQuality` | `"ImplausiblePrice" \| "ImplausibleValue" \| "PriceFarAboveClose" \| null` | Set when the price or value looks implausible |
 | `institutionalOwnership` | `InstitutionalOwnershipDto \| undefined` | 13F ownership context for the company |
 
 ### `client.insiders`
