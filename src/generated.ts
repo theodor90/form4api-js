@@ -36,15 +36,25 @@ export interface ErrorDetail {
   currentPlan?: string;
   /** Machine-readable class of miss on a ticker 404: `punctuation_variant` (an alternate spelling was verified to exist) or `unrecognized` (the symbol is absent — this does not assert why). Omitted when not applicable. */
   reason?: string;
-  /** On a 404 for an unmatched `/v1/*` or `/api/*` path: the real path (with your query string) when the request matches a known alias or a registered route under a different prefix. Omitted when not applicable. */
+  /** A corrected request to try. On a 404 for an unmatched `/v1/*` or `/api/*` path: the real path (with your query string), when the request matches a known alias or a registered route. On a 400 `UNKNOWN_PARAMETER`: your own path and query string with each misnamed parameter replaced by the one it most likely meant, present only when every unknown parameter had a suggestion. Omitted when not applicable. */
   didYouMean?: string;
-  /** On a 404 for an unmatched `/v1/*` or `/api/*` path: link to the API documentation. Omitted when not applicable. */
+  /** Link to the relevant documentation. Present on a 404 for an unmatched `/v1/*` or `/api/*` path, on a 400 `UNKNOWN_PARAMETER`, and on a 429 from the per-key quota (where it points at webhooks, the alternative to polling). Omitted when not applicable. */
   docsUrl?: string;
 }
 
 /** Standard error envelope returned by every non-2xx response. */
 export interface ErrorResponse {
   error: ErrorDetail;
+}
+
+export interface AddWatchlistItemsRequest {
+  items: WatchlistItemInput[] | null;
+}
+
+export interface AddWatchlistItemsResponse {
+  added: WatchlistItemDto[];
+  skipped: WatchlistSkippedItemDto[];
+  usage: WatchlistUsageDto;
 }
 
 export interface AmendmentMetrics {
@@ -93,6 +103,17 @@ export interface CompanyResponse {
   sicDescription: string | null;
   stateOfIncorporation: string | null;
   website: string | null;
+}
+
+export interface CompanyReturnsSummaryResponse {
+  ticker: string;
+  asOf: string;
+  methodology: string;
+  suppressed: boolean;
+  lowPrice: boolean;
+  buys: ReturnsSummaryBlock;
+  sells: ReturnsSummaryBlock;
+  baseline: ReturnsSummaryBaseline;
 }
 
 export interface CongressPoliticianProfileResponse {
@@ -172,6 +193,21 @@ export interface CongressTradeDto {
   dateQuality: string | null;
 }
 
+export interface CongressTradeDto2 {
+  politician: CongressPoliticianRefDto;
+  ticker: string | null;
+  assetName: string;
+  assetType: "Stock" | "Bond" | "Option" | "Fund" | "Crypto" | "Other" | "Unknown";
+  ownerType: "Self" | "Spouse" | "Joint" | "DependentChild" | "Unknown";
+  transactionType: "Purchase" | "Sale" | "PartialSale" | "Exchange" | "Unknown";
+  amountLow: number | null;
+  amountHigh: number | null;
+  transactionDate: string;
+  disclosureDate: string;
+  disclosureLagDays: number | null;
+  dateQuality: string | null;
+}
+
 export interface ConvergenceCongressLegDto {
   bioguideId: string | null;
   fullName: string;
@@ -225,8 +261,18 @@ export interface CoverageMetrics {
 export interface CreateKeyRequest {
   /** Free-form label for the key (e.g. "my-app", "backtest-script"). Optional; defaults to "default". Purely descriptive. */
   label: string | null;
-  /** Requested plan name ("Free", "Starter", "Pro", "Business", "Enterprise"). Ignored — always created as Free — unless the request also carries a valid X-Admin-Key header. */
+  /** Requested plan name ("Free", "Starter", "Pro", "Business", "Enterprise"). Optional. Omitted, "Free" or an unrecognized value creates a Free key. A paid plan name is rejected with 403 unless the request carries a valid X-Proxy-Key header (internal use only). */
   plan: string | null;
+}
+
+export interface CreateWatchlistRequest {
+  name: string | null;
+  items: WatchlistItemInput[] | null;
+}
+
+export interface CreateWatchlistResponse {
+  watchlist: WatchlistDetailDto;
+  usage: WatchlistUsageDto;
 }
 
 export interface CreateWebhookRequest {
@@ -455,6 +501,7 @@ export interface InsiderTxCodeBreakdown {
   a: number;
   g: number;
   other: number;
+  sWithValue?: number;
 }
 
 export interface InstitutionalOwnershipDto {
@@ -504,10 +551,57 @@ export interface RatioBasis {
   buySellRatio: number;
 }
 
+export interface RenameWatchlistRequest {
+  name: string | null;
+}
+
 export interface ReturnsCoverage {
   eligibleTransactions: number;
   fullyComputed: number;
   coveragePct: number;
+}
+
+export interface ReturnsSummaryBaseline {
+  buys: ReturnsSummaryBaselineBlock;
+  sells: ReturnsSummaryBaselineBlock;
+}
+
+export interface ReturnsSummaryBaselineBlock {
+  nEvents: number;
+  median3m: number | null;
+  mean3m: number | null;
+  hitRate3m: number | null;
+  excessMedian3m: number | null;
+  excessMean3m: number | null;
+  beatMarket3m: number | null;
+}
+
+export interface ReturnsSummaryBlock {
+  nEvents: number;
+  n1m: number;
+  n6m: number;
+  median1m: number | null;
+  median3m: number | null;
+  median6m: number | null;
+  mean3m: number | null;
+  hitRate3m: number | null;
+  nExcess1m: number;
+  nExcess3m: number;
+  nExcess6m: number;
+  excessMedian1m: number | null;
+  excessMedian3m: number | null;
+  excessMedian6m: number | null;
+  excessMean3m: number | null;
+  beatMarket3m: number | null;
+  events: ReturnsSummaryEvent[];
+}
+
+export interface ReturnsSummaryEvent {
+  filedAt: string;
+  return1m: number | null;
+  return3m: number | null;
+  return6m: number | null;
+  excess3m: number | null;
 }
 
 export interface Schedule13DGResponse {
@@ -595,6 +689,8 @@ export interface SignalResponse {
   isClusterBuy: boolean;
   isClusterSell: boolean;
   insiderCount: number;
+  preview?: boolean;
+  upgrade?: string;
 }
 
 export interface TestimonialSubmitRequest {
@@ -645,10 +741,14 @@ export interface TransactionResponse {
   return1m: number | null;
   return3m: number | null;
   return6m: number | null;
-  valueQuality: "ImplausiblePrice" | "ImplausibleValue" | null | null;
+  valueQuality: "ImplausiblePrice" | "ImplausibleValue" | "PriceFarAboveClose" | null | null;
   acceptedAt: string | null;
   documentUrl: string;
   institutionalOwnership?: InstitutionalOwnershipDto;
+}
+
+export interface UpdateWatchlistItemRequest {
+  shares: number | null;
 }
 
 export interface UpdateWebhookRequest {
@@ -676,6 +776,93 @@ export interface WaitlistRequest {
   source?: string;
 }
 
+export interface WatchlistActivityItemDto {
+  type: string;
+  ticker: string;
+  companyName: string | null;
+  date: string;
+  yourShares: number | null;
+  insider: WatchlistInsiderActivityDto;
+  congress: CongressTradeDto2;
+}
+
+export interface WatchlistActivityResponse {
+  items: WatchlistActivityItemDto[];
+  nextCursor: string | null;
+  since: string;
+  until: string | null;
+  congressSince: string | null;
+  unresolvedTickers: string[];
+}
+
+export interface WatchlistDetailDto {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  items: WatchlistItemDto[];
+}
+
+export interface WatchlistInsiderActivityDto {
+  insiderName: string;
+  insiderCik: string;
+  role: string | null;
+  isOfficer: boolean;
+  isDirector: boolean;
+  isTenPercentOwner: boolean;
+  transactionCode: string;
+  isOpenMarket: boolean;
+  side: string | null;
+  planned: boolean;
+  isDerivative: boolean;
+  transactionDate: string;
+  filedAt: string;
+  sharesAmount: number;
+  pricePerShare: number | null;
+  totalValue: number | null;
+  sharesOwnedAfter: number | null;
+  holdingChangePct: number | null;
+  accessionNumber: string;
+  documentUrl: string;
+}
+
+export interface WatchlistItemDto {
+  kind: string;
+  ticker: string;
+  shares: number | null;
+  addedAt: string;
+}
+
+export interface WatchlistItemInput {
+  ticker: string | null;
+  shares: number | null;
+}
+
+export interface WatchlistListResponse {
+  watchlists: WatchlistSummaryDto[];
+  usage: WatchlistUsageDto;
+}
+
+export interface WatchlistSkippedItemDto {
+  ticker: string;
+  reason: string;
+}
+
+export interface WatchlistSummaryDto {
+  id: number;
+  name: string;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WatchlistUsageDto {
+  tickersUsed: number;
+  tickerLimit: number | null;
+  listsUsed: number;
+  listLimit: number | null;
+}
+
 /** Optional. One custom HTTP header sent with every delivery to this subscription, e.g. { "name": "Authorization", "value": "Bearer ..." } for a receiver that rejects unauthenticated requests. Invalid or reserved names are rejected with 400 INVALID_AUTH_HEADER. The value is never returned by any endpoint. */
 export interface WebhookAuthHeaderRequest {
   /** HTTP header name: 1-64 characters of letters, digits and !#$%&'*+.^_`|~-. Reserved names (Host, Content-Type, Cookie, X-Insider-*, X-Event-Type, X-Delivery-Id and similar) are rejected. */
@@ -692,7 +879,7 @@ export interface WebhookAuthHeaderRequest2 {
 }
 
 export interface ListForm144Params {
-  /** Company ticker symbol, case-insensitive (e.g. "AAPL"). Omit to search across all companies. */
+  /** Company ticker symbol, case-insensitive (e.g. "AAPL"). Includes notices filed under a successor CIK of the same business. Omit to search across all companies. */
   ticker?: string;
   /** Case-insensitive substring match against the insider's name as filed on the Form 144 (formatting varies by broker — e.g. matches "Timothy D Cook" or "COOK, TIM"). */
   insider_name?: string;
@@ -788,7 +975,7 @@ export interface GetCompanyPeersParams {
 }
 
 export interface ListFilingsParams {
-  /** Company ticker symbol, case-insensitive (e.g. "AAPL"). */
+  /** Company ticker symbol, case-insensitive (e.g. "AAPL"). Also returns filings made under a successor CIK of the same business (e.g. after a re-registration or redomicile); an unrelated company that reuses the ticker is not included. */
   ticker?: string;
   /** Company CIK (SEC identifier), e.g. "0000320193". Leading zeros optional. */
   cik?: string;
@@ -805,7 +992,7 @@ export interface ListFilingsParams {
 }
 
 export interface GetRecentFilingsParams {
-  /** Restrict results to a single company ticker, case-insensitive (e.g. "AAPL"). Omit to return recent filings across all companies. */
+  /** Restrict results to a single company ticker, case-insensitive (e.g. "AAPL"). Also returns filings made under a successor CIK of the same business. Omit to return recent filings across all companies. */
   ticker?: string;
   /** Number of filings to return. Defaults to 20, maximum 100. */
   per_page?: number;
@@ -907,6 +1094,14 @@ export class GeneratedCompaniesResource {
   constructor(protected readonly client: Form4ApiClient) {}
 
   /**
+   * What happened after insiders traded at a company (Pro plan+)
+   * Summarises price returns after insider open-market trades at one company, for buys and for discretionary sells, next to a site-wide baseline computed the same way. The unit is an event: one per company per filing date and side. An event's return at a horizon (1m, 3m, 6m = 21, 63, 126 trading days) is the average of that event's rows, measured from the filing-date close. Included: open-market purchases (P) and sales (S) that are not superseded, not derivative and carry no value-quality flag, filed since 2023-05-22; sells exclude 10b5-1 plan sales. An event counts toward a horizon only once that horizon has matured. `nEvents` is the number of events with a 3m return; `n1m` and `n6m` are the counts for the other horizons. Medians are null when that horizon has fewer than 10 events; `mean3m` and `hitRate3m` (share of events with a positive 3m return) are null when `nEvents` is below 10. `events` lists the individual events, newest first, only when `nEvents` is between 3 and 9, otherwise it is empty. `suppressed` is true when the median filing-date close across the company's buy and sell events is below $1, and `lowPrice` is true when that median is from $1 up to below $5; the price itself is not returned. Market comparison: each event's stock return is compared with the S&P 500 (SPY) return over the same window, from the stock's filing-date close bar to the stock's own bar at the horizon, matched by exact date; the event's excess return is the stock return minus the SPY return, computed only when both exist (events without an SPY return are left out, never filled in). `nExcess1m`, `nExcess3m` and `nExcess6m` count the events with an excess return per horizon; `excessMedian1m`, `excessMedian3m` and `excessMedian6m` are null when that count is below 10; `excessMean3m` and `beatMarket3m` (share of events whose 3m stock return exceeded SPY's) are null when `nExcess3m` is below 10. Each item in `events` carries `excess3m`. Not adjusted for company size or sector. The `baseline` block (nEvents, median3m, mean3m, hitRate3m, plus excessMedian3m, excessMean3m and beatMarket3m for buys and sells) is site-wide. All return fields are FRACTIONS, 0.05 means +5%. Requires Pro plan or higher (402 PLAN_REQUIRED on Free). Returns 404 NOT_FOUND if the ticker isn't tracked; when several companies hold the ticker, the one GET /v1/companies/{ticker} returns is used. Cached for 24 hours per ticker, and the baseline is cached for 24 hours, so `asOf` can lag the latest filings by up to a day or two.
+   */
+  async companyReturnsSummary(ticker: string): Promise<CompanyReturnsSummaryResponse> {
+    return this.client._get<CompanyReturnsSummaryResponse>(`/v1/companies/${encodeURIComponent(ticker)}/returns-summary`);
+  }
+
+  /**
    * List companies with a public ticker, sorted by name or total filings
    * Returns a single page of companies that have a tracked public ticker — for browsing or building a company picker, not for searching by name or CIK (there is no full-text search here; use GET /v1/companies/{ticker} to fetch one company by its exact ticker). Each entry includes the company's CIK, name, ticker, exchange, total filing count, and distinct insider count. There is no page parameter — this endpoint always returns the top `limit` companies by the chosen sort order. Not plan-gated.
    */
@@ -916,7 +1111,7 @@ export class GeneratedCompaniesResource {
 
   /**
    * Peer companies in the same SIC industry, ranked by recent Form 4 activity
-   * Returns other tracked companies in the same industry as the given ticker, for "similar companies" links. Candidates share the company's 4-digit SIC code (matchLevel "sic4"); when too few of those have Form 4 filings in the last 12 months to fill `limit`, companies sharing only the 2-digit SIC prefix (matchLevel "sic2") are added. Active peers (at least one Form 4 filing dated in the trailing 12 months, `filings12m`) come first, sic4 before sic2, each tier ordered by `filings12m` descending then ticker ascending; peers with no filings in the window are appended last only if there is still room. The company itself is excluded, as are companies without a ticker or without a usable SIC code. `basis` is "sic4", "sic2" or "mixed" according to the match levels present in `peers`, and "none" when `peers` is empty (including when the company has no SIC code, which is 200 with an empty list, not 404). `limit` defaults to 10 and is clamped to 1-25. Returns 404 NOT_FOUND if the ticker isn't tracked. Not plan-gated. Results are cached for a few hours.
+   * Returns other tracked companies in the same industry as the given ticker, for "similar companies" links. Candidates share the company's 4-digit SIC code (matchLevel "sic4"); when too few of those have Form 4 filings in the last 12 months to fill `limit`, companies sharing only the 2-digit SIC prefix (matchLevel "sic2") are added. Active peers (at least one Form 4 filing dated in the trailing 12 months, `filings12m`) come first, sic4 before sic2, each tier ordered by `filings12m` descending then ticker ascending; peers with no filings in the window are appended last only if there is still room. The company itself is excluded, as are companies without a ticker or without a usable SIC code, and any other company holding the same ticker. When several companies hold the ticker, the one GET /v1/companies/{ticker} returns is used. `basis` is "sic4", "sic2" or "mixed" according to the match levels present in `peers`, and "none" when `peers` is empty (including when the company has no SIC code, which is 200 with an empty list, not 404). `limit` defaults to 10 and is clamped to 1-25. Returns 404 NOT_FOUND if the ticker isn't tracked. Not plan-gated. Results are cached for a few hours.
    */
   async peers(ticker: string, params?: GetCompanyPeersParams): Promise<CompanyPeersResponse> {
     return this.client._get<CompanyPeersResponse>(`/v1/companies/${encodeURIComponent(ticker)}/peers`, toQuery(params));
@@ -1107,8 +1302,12 @@ as FRACTIONS — 0.05 means +5%, -0.10 means -10%.
    * Get aggregate career summary for an insider (Pro plan+)
    * Aggregate career roll-up for a single insider: first/last transaction dates, total transactions,
 total bought/sold/net USD, transaction-code breakdown (P/S/F/M/A/G/other counts), the top 10
-companies traded (by activity), the 10b5-1 vs discretionary split, and average post-trade returns
-across discretionary open-market (non-10b5-1) buy/sell trades. Use this for a one-call career
+companies traded (by activity), the 10b5-1 vs discretionary split, and post-trade returns
+across discretionary open-market (non-10b5-1) buy/sell trades. The S count includes every
+sale; SWithValue counts only the sales that contribute to TotalSoldUsd (trusted value, price
+and shares above zero), so S minus SWithValue is the number of sales the dollar total omits.
+Despite their AvgReturn names, the return fields are the MEDIAN across those trades, and
+trades with an entry close below $0.01 carry no return, and a horizon is null when a one-day close change of 10x or more (typically a split) falls inside its window. Use this for a one-call career
 overview rather than paging through GET /v1/insiders/{cik}/transactions yourself; for a scored
 hit-rate track record on buys specifically, use GET /v1/insiders/{cik}/scorecard instead.
 Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). Returns 404 NOT_FOUND if the CIK

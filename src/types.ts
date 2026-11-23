@@ -35,7 +35,7 @@ export interface Transaction {
   return3m: number | null;
   return6m: number | null;
   /** Set when the price or value looks implausible; null otherwise. */
-  valueQuality: "ImplausiblePrice" | "ImplausibleValue" | null;
+  valueQuality: "ImplausiblePrice" | "ImplausibleValue" | "PriceFarAboveClose" | null;
   /** Institutional (13F) ownership context for the company. May be absent. */
   institutionalOwnership?: InstitutionalOwnershipDto;
 }
